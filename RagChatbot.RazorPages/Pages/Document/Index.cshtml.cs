@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.RazorPages.Hubs;
 using RagChatbot.RazorPages.Services;
 
 namespace RagChatbot.RazorPages.Pages.Document
@@ -16,19 +18,22 @@ namespace RagChatbot.RazorPages.Pages.Document
         private readonly IUserSubjectService _userSubjectService;
         private readonly IWebHostEnvironment _env;
         private readonly IDashboardNotifier _dashboard;
+        private readonly IHubContext<DocumentHub> _documentHub;
 
         public IndexModel(
             IDocumentService documentService,
             ISubjectService subjectService,
             IUserSubjectService userSubjectService,
             IWebHostEnvironment env,
-            IDashboardNotifier dashboard)
+            IDashboardNotifier dashboard,
+            IHubContext<DocumentHub> documentHub)
         {
             _documentService = documentService;
             _subjectService = subjectService;
             _userSubjectService = userSubjectService;
             _env = env;
             _dashboard = dashboard;
+            _documentHub = documentHub;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -64,6 +69,12 @@ namespace RagChatbot.RazorPages.Pages.Document
             string fileName = doc?.FileName ?? "Tài liệu";
             _documentService.DeleteDocument(id, _env.WebRootPath);
             await _dashboard.StatsChangedAsync();
+            await _documentHub.Clients.Group(DocumentHub.GroupName(subjectId)).SendAsync("DocumentListChanged", new
+            {
+                action = "deleted",
+                documentId = id,
+                subjectId
+            });
             TempData["SuccessMessage"] = $"Đã xóa tài liệu \"{fileName}\" thành công.";
             return RedirectToPage(new { subjectId });
         }

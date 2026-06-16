@@ -89,6 +89,11 @@ namespace RagChatbot.RazorPages.Pages.Member
                 // Cập nhật danh sách thành viên cho mọi người đang xem môn học này
                 await _subjectHub.Clients.Group(SubjectHub.MembersGroup(SubjectId))
                                  .SendAsync("MembersChanged");
+
+                // Cập nhật danh sách môn học cho các user vừa được thêm nếu họ đang mở trang Môn học.
+                // Client tự reload partial theo phân quyền nên chỉ thấy môn được phép xem.
+                await _subjectHub.Clients.Group(SubjectHub.SubjectListGroup)
+                                 .SendAsync("SubjectListChanged");
             }
 
             if (limitBlocked > 0 && added == 0)

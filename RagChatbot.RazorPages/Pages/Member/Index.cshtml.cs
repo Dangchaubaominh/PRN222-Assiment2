@@ -95,6 +95,11 @@ namespace RagChatbot.RazorPages.Pages.Member
             await _subjectHub.Clients.Group(SubjectHub.MembersGroup(subjectId))
                              .SendAsync("MembersChanged");
 
+            // Cập nhật danh sách môn học cho user vừa bị gỡ nếu họ đang mở trang Môn học.
+            // Client tự reload partial theo phân quyền nên môn bị gỡ sẽ biến mất.
+            await _subjectHub.Clients.Group(SubjectHub.SubjectListGroup)
+                             .SendAsync("SubjectListChanged");
+
             TempData["SuccessMessage"] = "Đã xóa thành viên khỏi môn học.";
             return RedirectToPage(new { subjectId });
         }

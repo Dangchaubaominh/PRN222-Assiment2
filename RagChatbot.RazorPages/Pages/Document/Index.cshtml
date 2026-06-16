@@ -145,6 +145,16 @@ else
         setTimeout(() => { cell.style.backgroundColor = ''; }, 800);
     });
 
+
+    let documentListReloadTimer = null;
+    connection.on('DocumentListChanged', payload => {
+        if (!payload || String(payload.subjectId).toLowerCase() !== subjectId.toLowerCase()) return;
+
+        clearTimeout(documentListReloadTimer);
+        documentListReloadTimer = setTimeout(() => {
+            window.location.reload();
+        }, 250);
+    });
     function joinGroup() {
         if (subjectId) connection.invoke('JoinSubject', subjectId).catch(() => {});
     }

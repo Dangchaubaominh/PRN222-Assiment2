@@ -73,3 +73,27 @@
         </tbody>
     </table>
 </div>
+@section Scripts {
+@* signalR client đã được nạp sẵn trong _Layout *@
+<script>
+    const userListConn = new signalR.HubConnectionBuilder()
+        .withUrl('/userHub')
+        .withAutomaticReconnect()
+        .build();
+
+    let userListReloadTimer = null;
+    userListConn.on('UserListChanged', () => {
+        clearTimeout(userListReloadTimer);
+        userListReloadTimer = setTimeout(() => {
+            window.location.reload();
+        }, 250);
+    });
+
+    function joinUserList() {
+        userListConn.invoke('JoinUserList').catch(() => {});
+    }
+
+    userListConn.onreconnected(joinUserList);
+    userListConn.start().then(joinUserList).catch(err => console.error('UserHub:', err));
+</script>
+}
