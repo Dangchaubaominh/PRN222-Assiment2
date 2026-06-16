@@ -5,7 +5,6 @@ namespace RagChatbot.DAL.Repositories.Interfaces
 {
     public interface IUserRepository
     {
-        User GetUserByCredentials(string username, string password);
         User GetByUsername(string username);
         User GetByEmail(string email);
         User GetByResetToken(string token);

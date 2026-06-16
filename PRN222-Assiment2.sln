@@ -7,7 +7,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RagChatbot.DAL", "RagChatbo
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RagChatbot.BLL", "RagChatbot.BLL\RagChatbot.BLL.csproj", "{38859D52-92A9-46E2-9E81-0170EE17F28C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RagChatbot.MVC", "RagChatbot.MVC\RagChatbot.MVC.csproj", "{1C9D767A-B337-4583-86ED-E2FCEBBECE3C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RagChatbot.RazorPages", "RagChatbot.RazorPages\RagChatbot.RazorPages.csproj", "{1C9D767A-B337-4583-86ED-E2FCEBBECE3C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

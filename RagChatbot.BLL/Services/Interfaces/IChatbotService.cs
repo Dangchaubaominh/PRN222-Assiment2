@@ -1,10 +1,13 @@
-﻿using System;
+using System;
+using System.Threading;
 using System.Threading.Tasks;
+using RagChatbot.BLL.DTOs;
 
 namespace RagChatbot.BLL.Services.Interfaces
 {
     public interface IChatbotService
     {
-        Task<string> GetAnswerAsync(Guid subjectId, string userMessage);
+        // Hỏi chatbot: tìm ngữ cảnh (RAG) rồi trả về nguồn + luồng câu trả lời (streaming)
+        Task<ChatResult> AskAsync(Guid subjectId, string userMessage, CancellationToken cancellationToken = default);
     }
 }

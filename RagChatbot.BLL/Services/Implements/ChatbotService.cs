@@ -1,7 +1,11 @@
+using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.DAL.Entities;
 using RagChatbot.DAL.Repositories.Interfaces;
 using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace RagChatbot.BLL.Services.Implements
@@ -17,30 +21,50 @@ namespace RagChatbot.BLL.Services.Implements
             _aiService = aiService;
         }
 
-        public async Task<string> GetAnswerAsync(Guid subjectId, string userMessage)
+        public async Task<ChatResult> AskAsync(Guid subjectId, string userMessage, CancellationToken cancellationToken = default)
         {
+            // Giai đoạn chuẩn bị: nhúng câu hỏi + tìm chunk gần nhất (kèm nguồn)
+            string? prepError = null;
+            List<DocumentChunk> chunks = new();
             try
             {
-                // 1. Nhúng câu hỏi thành Vector 768 chiều
                 float[] questionVector = await _aiService.GenerateEmbeddingAsync(userMessage);
-
-                // 2. Tìm 3 đoạn văn bản gần nhất trong phạm vi môn học
-                var similarChunks = (await _chunkRepository.SearchSimilarChunksAsync(subjectId, questionVector, topK: 3))
-                    .ToList();
-
-                if (!similarChunks.Any())
-                    return "Môn học này hiện chưa có tài liệu nào. Vui lòng upload tài liệu trước khi hỏi.";
-
-                // 3. Ghép context và gọi AI
-                string contextText = string.Join("\n\n---\n\n", similarChunks);
-                string finalPrompt = $"TÀI LIỆU CUNG CẤP:\n{contextText}\n\nCÂU HỎI CỦA NGƯỜI DÙNG:\n{userMessage}";
-
-                return await _aiService.GenerateChatResponseAsync(finalPrompt);
+                chunks = (await _chunkRepository.SearchSimilarChunksAsync(subjectId, questionVector, topK: 3)).ToList();
             }
             catch (Exception ex)
             {
-                return $"Hệ thống gặp lỗi nội bộ: {ex.Message}";
+                prepError = $"Hệ thống gặp lỗi nội bộ: {ex.Message}";
             }
+
+            if (prepError != null)
+                return new ChatResult { Answer = Single(prepError) };
+
+            if (!chunks.Any())
+                return new ChatResult { Answer = Single("Môn học này hiện chưa có tài liệu nào. Vui lòng upload tài liệu trước khi hỏi.") };
+
+            // Ghép context + danh sách nguồn (tên tài liệu, không trùng)
+            string contextText = string.Join("\n\n---\n\n", chunks.Select(c => c.TextContent));
+            var sources = chunks
+                .Select(c => c.Document?.FileName)
+                .Where(f => !string.IsNullOrEmpty(f))
+                .Distinct()
+                .Cast<string>()
+                .ToList();
+
+            string finalPrompt = $"TÀI LIỆU CUNG CẤP:\n{contextText}\n\nCÂU HỎI CỦA NGƯỜI DÙNG:\n{userMessage}";
+
+            return new ChatResult
+            {
+                Sources = sources,
+                Answer = _aiService.GenerateChatResponseStreamAsync(finalPrompt, cancellationToken)
+            };
+        }
+
+        // Bọc một thông báo đơn thành luồng 1 phần tử
+        private static async IAsyncEnumerable<string> Single(string message)
+        {
+            yield return message;
+            await Task.CompletedTask;
         }
     }
 }

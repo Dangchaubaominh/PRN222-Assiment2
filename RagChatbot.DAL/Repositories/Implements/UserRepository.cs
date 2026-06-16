@@ -15,11 +15,6 @@ namespace RagChatbot.DAL.Repositories.Implements
             _context = context;
         }
 
-        public User GetUserByCredentials(string username, string password)
-        {
-            return _context.Users.FirstOrDefault(u => u.Username == username && u.Password == password);
-        }
-
         public User GetByUsername(string username)
         {
             return _context.Users.FirstOrDefault(u => u.Username == username);

@@ -24,6 +24,39 @@ namespace RagChatbot.DAL.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("RagChatbot.DAL.Entities.ChatMessage", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Sender")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("SubjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "SubjectId");
+
+                    b.ToTable("ChatMessages");
+                });
+
             modelBuilder.Entity("RagChatbot.DAL.Entities.Document", b =>
                 {
                     b.Property<Guid>("Id")
@@ -78,6 +111,40 @@ namespace RagChatbot.DAL.Migrations
                     b.HasIndex("DocumentId");
 
                     b.ToTable("DocumentChunks");
+                });
+
+            modelBuilder.Entity("RagChatbot.DAL.Entities.Notification", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "IsRead");
+
+                    b.ToTable("Notifications");
                 });
 
             modelBuilder.Entity("RagChatbot.DAL.Entities.Subject", b =>
@@ -152,7 +219,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 1,
                             FullName = "Nguyễn Quản Trị",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Admin",
                             Username = "admin"
                         },
@@ -160,7 +227,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 2,
                             FullName = "Trần Thị Hương",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Lecturer",
                             Username = "giangvien"
                         },
@@ -168,7 +235,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 3,
                             FullName = "Lê Văn An",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sinhvien"
                         },
@@ -176,7 +243,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 4,
                             FullName = "Phạm Quốc Minh",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Lecturer",
                             Username = "gv_minh"
                         },
@@ -184,7 +251,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 5,
                             FullName = "Ngô Thị Lan",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Lecturer",
                             Username = "gv_lan"
                         },
@@ -192,7 +259,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 6,
                             FullName = "Đặng Châu Bảo",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_bao"
                         },
@@ -200,7 +267,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 7,
                             FullName = "Hoàng Minh Tùng",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_tung"
                         },
@@ -208,7 +275,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 8,
                             FullName = "Vũ Thị Linh",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_linh"
                         },
@@ -216,7 +283,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 9,
                             FullName = "Bùi Thanh Khoa",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_khoa"
                         },
@@ -224,7 +291,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 10,
                             FullName = "Trịnh Thị Ngân",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_ngan"
                         },
@@ -232,7 +299,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 11,
                             FullName = "Lý Công Hiếu",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_hieu"
                         },
@@ -240,7 +307,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 12,
                             FullName = "Dương Thị Phương",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_phuong"
                         },
@@ -248,7 +315,7 @@ namespace RagChatbot.DAL.Migrations
                         {
                             Id = 13,
                             FullName = "Mai Xuân Đức",
-                            Password = "123",
+                            Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu",
                             Role = "Student",
                             Username = "sv_duc"
                         });
@@ -289,6 +356,15 @@ namespace RagChatbot.DAL.Migrations
                         .IsRequired();
 
                     b.Navigation("Document");
+                });
+
+            modelBuilder.Entity("RagChatbot.DAL.Entities.Notification", b =>
+                {
+                    b.HasOne("RagChatbot.DAL.Entities.User", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("RagChatbot.DAL.Entities.UserSubject", b =>

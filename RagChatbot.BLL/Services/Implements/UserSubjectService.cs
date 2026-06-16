@@ -88,5 +88,10 @@ namespace RagChatbot.BLL.Services.Implements
         {
             _userSubjectRepository.Remove(userId, subjectId);
         }
+
+        public bool IsAssigned(int userId, Guid subjectId)
+        {
+            return _userSubjectRepository.IsAssigned(userId, subjectId);
+        }
     }
 }

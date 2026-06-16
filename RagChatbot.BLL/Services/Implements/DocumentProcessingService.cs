@@ -88,9 +88,13 @@ namespace RagChatbot.BLL.Services.Implements
 
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
-                throw new Exception($"Lỗi tại RAG Pipeline: {ex.Message}", ex);
+                // Hủy mọi thay đổi đang chờ (các chunk thêm dở dang chưa lưu),
+                // rồi chỉ đánh dấu tài liệu là Failed.
+                _context.ChangeTracker.Clear();
+                _documentRepo.UpdateStatus(documentId, DocumentStatus.Failed);
+                return false;
             }
         }
 

@@ -14,5 +14,8 @@ namespace RagChatbot.BLL.Services.Interfaces
         AssignResult Assign(int userId, Guid subjectId);
         void Remove(int userId, Guid subjectId);
         int CountTeachersInSubject(Guid subjectId);
+
+        // Người dùng có thuộc môn học này không (dùng để kiểm tra quyền truy cập)
+        bool IsAssigned(int userId, Guid subjectId);
     }
 }

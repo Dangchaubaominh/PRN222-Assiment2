@@ -32,7 +32,7 @@ namespace RagChatbot.DAL.Repositories.Implements
             return _context.DocumentChunks.Count(c => c.DocumentId == documentId);
         }
 
-        public async Task<IEnumerable<string>> SearchSimilarChunksAsync(Guid subjectId, float[] queryVector, int topK = 3)
+        public async Task<IEnumerable<DocumentChunk>> SearchSimilarChunksAsync(Guid subjectId, float[] queryVector, int topK = 3)
         {
             var vector = new Vector(queryVector);
 
@@ -41,7 +41,6 @@ namespace RagChatbot.DAL.Repositories.Implements
                 .Where(c => c.Document.SubjectId == subjectId)
                 .OrderBy(c => c.Embedding.CosineDistance(vector))
                 .Take(topK)
-                .Select(c => c.TextContent)
                 .ToListAsync();
         }
     }

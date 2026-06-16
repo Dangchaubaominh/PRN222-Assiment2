@@ -1,0 +1,241 @@
+@page
+@model RagChatbot.RazorPages.Pages.Chat.IndexModel
+@{
+    ViewData["Title"] = "Chat AI";
+}
+
+<div class="chat-wrapper fade-in-up">
+    <!-- Header -->
+    <div class="chat-header">
+        <div class="chat-avatar">🤖</div>
+        <div>
+            <div class="chat-title">Trợ lý AI — RAG Chatbot</div>
+            <div class="chat-subtitle" id="chatStatus">Đang kết nối real-time…</div>
+        </div>
+        <div style="margin-left:auto">
+            <a href="@Url.Page("/Subject/Index")" class="btn-app btn-sm-app"
+               style="background:rgba(255,255,255,.15);color:#fff;gap:4px">
+                <i class="bi bi-arrow-left"></i> Trở về
+            </a>
+        </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="chat-messages" id="chatMessages">
+        @if (!Model.History.Any())
+        {
+            <div class="msg-row ai">
+                <div class="msg-avatar ai"><i class="bi bi-robot"></i></div>
+                <div class="msg-bubble ai">
+                    <strong>Xin chào! 👋</strong><br/>
+                    Tôi là trợ lý AI đã được học từ tài liệu của môn học này.
+                    Bạn có thể hỏi tôi bất cứ điều gì liên quan đến nội dung tài liệu.
+                </div>
+            </div>
+        }
+        else
+        {
+            @foreach (var m in Model.History)
+            {
+                if (m.Sender == "assistant")
+                {
+                    <div class="msg-row ai">
+                        <div class="msg-avatar ai"><i class="bi bi-robot"></i></div>
+                        <div class="msg-bubble ai md-render">@m.Content</div>
+                    </div>
+                }
+                else
+                {
+                    <div class="msg-row user">
+                        <div class="msg-avatar user"><i class="bi bi-person-fill"></i></div>
+                        <div class="msg-bubble user"><span style="white-space:pre-wrap">@m.Content</span></div>
+                    </div>
+                }
+            }
+        }
+    </div>
+
+    <!-- Input -->
+    <div class="chat-input-area">
+        <input type="hidden" id="SubjectId" value="@Model.SubjectId" />
+        <input type="text" id="userInput" class="chat-input"
+               placeholder="Nhập câu hỏi của bạn..." autocomplete="off" disabled />
+        <button class="chat-send-btn" id="sendBtn" onclick="sendMessage()" disabled>
+            <i class="bi bi-send-fill" style="font-size:16px"></i>
+        </button>
+    </div>
+</div>
+
+@section Scripts {
+@* signalR client đã được nạp sẵn trong _Layout *@
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
+<style>
+    .msg-bubble.ai p:first-child { margin-top: 0; }
+    .msg-bubble.ai p:last-child { margin-bottom: 0; }
+    .msg-bubble.ai pre { background: rgba(0,0,0,.06); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
+    .msg-bubble.ai code { font-family: 'Consolas','Courier New',monospace; font-size: 13px; }
+    .msg-bubble.ai ul, .msg-bubble.ai ol { margin: 6px 0; padding-left: 20px; }
+    .msg-sources {
+        margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
+        font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .msg-sources .src-chip {
+        background: rgba(99,102,241,.1); color: var(--primary);
+        padding: 1px 8px; border-radius: 20px; font-weight: 600;
+    }
+</style>
+<script>
+    const messagesEl = document.getElementById('chatMessages');
+    const inputEl    = document.getElementById('userInput');
+    const sendBtn    = document.getElementById('sendBtn');
+    const statusEl   = document.getElementById('chatStatus');
+    const subjectId  = document.getElementById('SubjectId').value;
+
+    // Markdown -> HTML rồi sanitize chống XSS trước khi gắn vào DOM
+    function mdSafe(text) {
+        return DOMPurify.sanitize(marked.parse(text || ''));
+    }
+
+    // Render Markdown cho các câu trả lời AI có sẵn trong lịch sử
+    document.querySelectorAll('.msg-bubble.md-render').forEach(el => {
+        el.innerHTML = mdSafe(el.textContent);
+    });
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+
+    let loadingId    = null;
+    let streamBubble = null;   // bong bóng AI đang stream
+    let streamRaw    = '';     // nội dung thô (markdown) đang tích lũy
+
+    const connection = new signalR.HubConnectionBuilder()
+        .withUrl('/chatHub')
+        .withAutomaticReconnect()
+        .build();
+
+    connection.on('BotTyping', () => {
+        if (loadingId || streamBubble) return;
+        loadingId = 'loading-' + Date.now();
+        appendHtml('Đang tìm kiếm trong tài liệu<span class="typing-dots"></span>', 'ai', loadingId);
+    });
+
+    // Nối từng đoạn → render Markdown trực tiếp vào cùng bong bóng
+    connection.on('ReceiveChunk', delta => {
+        if (!streamBubble) { removeLoading(); streamBubble = startStreamBubble(); streamRaw = ''; }
+        streamRaw += delta;
+        streamBubble.innerHTML = mdSafe(streamRaw);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+
+    // Danh sách nguồn trích dẫn → gắn footer vào bong bóng hiện tại
+    connection.on('ReceiveSources', sources => {
+        if (!streamBubble || !sources || !sources.length) return;
+        const foot = document.createElement('div');
+        foot.className = 'msg-sources';
+        foot.innerHTML = '<i class="bi bi-journal-text"></i> Nguồn: ' +
+            sources.map(s => '<span class="src-chip"></span>').join(' ');
+        // gán tên file an toàn bằng textContent
+        const chips = foot.querySelectorAll('.src-chip');
+        sources.forEach((s, i) => { if (chips[i]) chips[i].textContent = s; });
+        streamBubble.appendChild(foot);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+
+    connection.on('ReceiveDone', () => { streamBubble = null; unlockInput(); });
+
+    connection.on('ReceiveError', msg => {
+        removeLoading();
+        streamBubble = null;
+        appendHtml('<span style="white-space:pre-wrap"></span>', 'ai', null, msg);
+        unlockInput();
+    });
+
+    connection.onreconnecting(() => { statusEl.textContent = 'Đang kết nối lại…'; lockInput(); });
+    connection.onreconnected(()  => { statusEl.textContent = 'Đã sẵn sàng trả lời dựa trên tài liệu môn học'; unlockInput(); });
+    connection.onclose(()        => { statusEl.textContent = 'Mất kết nối — hãy tải lại trang.'; lockInput(); });
+
+    connection.start()
+        .then(() => {
+            statusEl.textContent = 'Đã sẵn sàng trả lời dựa trên tài liệu môn học';
+            unlockInput();
+            inputEl.focus();
+        })
+        .catch(() => { statusEl.textContent = '❌ Không kết nối được máy chủ real-time.'; });
+
+    inputEl.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+    });
+
+    function sendMessage() {
+        const text = inputEl.value.trim();
+        if (!text || sendBtn.disabled) return;
+        appendUserMsg(text);
+        inputEl.value = '';
+        streamBubble = null;
+        lockInput();
+        connection.invoke('StreamMessage', subjectId, text)
+            .catch(() => {
+                removeLoading(); streamBubble = null;
+                appendHtml('', 'ai', null, '❌ Lỗi gửi câu hỏi đến máy chủ. Vui lòng thử lại.');
+                unlockInput();
+            });
+    }
+
+    function lockInput()   { sendBtn.disabled = true;  inputEl.disabled = true; }
+    function unlockInput() { sendBtn.disabled = false; inputEl.disabled = false; inputEl.focus(); }
+    function removeLoading() {
+        if (loadingId) { document.getElementById(loadingId)?.remove(); loadingId = null; }
+    }
+
+    function startStreamBubble() {
+        const row = document.createElement('div');
+        row.className = 'msg-row ai';
+        row.innerHTML = '<div class="msg-avatar ai"><i class="bi bi-robot"></i></div>';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble ai';
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return bubble;
+    }
+
+    // Tin nhắn người dùng (text thuần, an toàn)
+    function appendUserMsg(text) {
+        const row = document.createElement('div');
+        row.className = 'msg-row user';
+        row.innerHTML = '<div class="msg-avatar user"><i class="bi bi-person-fill"></i></div>';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble user';
+        const span = document.createElement('span');
+        span.style.whiteSpace = 'pre-wrap';
+        span.textContent = text;
+        bubble.appendChild(span);
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Bong bóng AI dạng HTML (loading) hoặc text thuần (lỗi) — dùng cho thông báo hệ thống
+    function appendHtml(html, type, id, textContent) {
+        const row = document.createElement('div');
+        row.className = 'msg-row ' + type;
+        if (id) row.id = id;
+        const avatar = document.createElement('div');
+        avatar.className = 'msg-avatar ' + type;
+        avatar.innerHTML = type === 'ai' ? '<i class="bi bi-robot"></i>' : '<i class="bi bi-person-fill"></i>';
+        const bubble = document.createElement('div');
+        bubble.className = 'msg-bubble ' + type;
+        if (textContent !== undefined) {
+            const span = document.createElement('span');
+            span.style.whiteSpace = 'pre-wrap';
+            span.textContent = textContent;
+            bubble.appendChild(span);
+        } else {
+            bubble.innerHTML = html;
+        }
+        row.appendChild(avatar);
+        row.appendChild(bubble);
+        messagesEl.appendChild(row);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+</script>
+}

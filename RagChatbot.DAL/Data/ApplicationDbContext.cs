@@ -16,6 +16,8 @@ namespace RagChatbot.DAL.Data
         public DbSet<DocumentChunk> DocumentChunks { get; set; }
         public DbSet<User> Users { get; set; }
         public DbSet<UserSubject> UserSubjects { get; set; }
+        public DbSet<Notification> Notifications { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,20 +38,33 @@ namespace RagChatbot.DAL.Data
                 .WithMany(s => s.UserSubjects)
                 .HasForeignKey(us => us.SubjectId);
 
+            // Thông báo gắn với người nhận; xóa user thì xóa luôn thông báo
+            modelBuilder.Entity<Notification>()
+                .HasIndex(n => new { n.UserId, n.IsRead });
+            modelBuilder.Entity<Notification>()
+                .HasOne<User>()
+                .WithMany()
+                .HasForeignKey(n => n.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Lịch sử chat truy theo (UserId, SubjectId)
+            modelBuilder.Entity<ChatMessage>()
+                .HasIndex(m => new { m.UserId, m.SubjectId });
+
             modelBuilder.Entity<User>().HasData(
-                new User { Id = 1,  Username = "admin",       Password = "123", Role = "Admin",    FullName = "Nguyễn Quản Trị" },
-                new User { Id = 2,  Username = "giangvien",   Password = "123", Role = "Lecturer", FullName = "Trần Thị Hương" },
-                new User { Id = 3,  Username = "sinhvien",    Password = "123", Role = "Student",  FullName = "Lê Văn An" },
-                new User { Id = 4,  Username = "gv_minh",     Password = "123", Role = "Lecturer", FullName = "Phạm Quốc Minh" },
-                new User { Id = 5,  Username = "gv_lan",      Password = "123", Role = "Lecturer", FullName = "Ngô Thị Lan" },
-                new User { Id = 6,  Username = "sv_bao",      Password = "123", Role = "Student",  FullName = "Đặng Châu Bảo" },
-                new User { Id = 7,  Username = "sv_tung",     Password = "123", Role = "Student",  FullName = "Hoàng Minh Tùng" },
-                new User { Id = 8,  Username = "sv_linh",     Password = "123", Role = "Student",  FullName = "Vũ Thị Linh" },
-                new User { Id = 9,  Username = "sv_khoa",     Password = "123", Role = "Student",  FullName = "Bùi Thanh Khoa" },
-                new User { Id = 10, Username = "sv_ngan",     Password = "123", Role = "Student",  FullName = "Trịnh Thị Ngân" },
-                new User { Id = 11, Username = "sv_hieu",     Password = "123", Role = "Student",  FullName = "Lý Công Hiếu" },
-                new User { Id = 12, Username = "sv_phuong",   Password = "123", Role = "Student",  FullName = "Dương Thị Phương" },
-                new User { Id = 13, Username = "sv_duc",      Password = "123", Role = "Student",  FullName = "Mai Xuân Đức" }
+                new User { Id = 1,  Username = "admin",       Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Admin",    FullName = "Nguyễn Quản Trị" },
+                new User { Id = 2,  Username = "giangvien",   Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Lecturer", FullName = "Trần Thị Hương" },
+                new User { Id = 3,  Username = "sinhvien",    Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Lê Văn An" },
+                new User { Id = 4,  Username = "gv_minh",     Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Lecturer", FullName = "Phạm Quốc Minh" },
+                new User { Id = 5,  Username = "gv_lan",      Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Lecturer", FullName = "Ngô Thị Lan" },
+                new User { Id = 6,  Username = "sv_bao",      Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Đặng Châu Bảo" },
+                new User { Id = 7,  Username = "sv_tung",     Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Hoàng Minh Tùng" },
+                new User { Id = 8,  Username = "sv_linh",     Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Vũ Thị Linh" },
+                new User { Id = 9,  Username = "sv_khoa",     Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Bùi Thanh Khoa" },
+                new User { Id = 10, Username = "sv_ngan",     Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Trịnh Thị Ngân" },
+                new User { Id = 11, Username = "sv_hieu",     Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Lý Công Hiếu" },
+                new User { Id = 12, Username = "sv_phuong",   Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Dương Thị Phương" },
+                new User { Id = 13, Username = "sv_duc",      Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Student",  FullName = "Mai Xuân Đức" }
             );
         }
     }

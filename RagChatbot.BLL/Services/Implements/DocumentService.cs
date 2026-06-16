@@ -69,6 +69,8 @@ namespace RagChatbot.BLL.Services.Implements
             }
         }
 
+        public int CountAllDocuments() => _documentRepository.CountAll();
+
         public bool DeleteDocument(Guid id, string rootPath)
         {
             var document = _documentRepository.GetById(id);

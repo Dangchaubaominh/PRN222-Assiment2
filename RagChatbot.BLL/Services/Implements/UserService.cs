@@ -19,8 +19,11 @@ namespace RagChatbot.BLL.Services.Implements
 
         public UserDto Authenticate(string username, string password)
         {
-            var userEntity = _userRepository.GetUserByCredentials(username, password);
+            var userEntity = _userRepository.GetByUsername(username);
             if (userEntity == null) return null;
+
+            // Mật khẩu được lưu dưới dạng băm BCrypt — không so khớp chuỗi trực tiếp
+            if (!BCrypt.Net.BCrypt.Verify(password, userEntity.Password)) return null;
 
             return new UserDto
             {
@@ -90,7 +93,7 @@ namespace RagChatbot.BLL.Services.Implements
         {
             if (!IsValidResetToken(token)) return false;
             var user = _userRepository.GetByResetToken(token);
-            _userRepository.UpdatePassword(user.Id, newPassword);
+            _userRepository.UpdatePassword(user.Id, BCrypt.Net.BCrypt.HashPassword(newPassword));
             return true;
         }
 
@@ -108,7 +111,7 @@ namespace RagChatbot.BLL.Services.Implements
             var entity = new User
             {
                 Username = dto.Username,
-                Password = dto.Password,
+                Password = BCrypt.Net.BCrypt.HashPassword(dto.Password),
                 Role     = dto.Role,
                 FullName = dto.FullName,
                 Email    = dto.Email

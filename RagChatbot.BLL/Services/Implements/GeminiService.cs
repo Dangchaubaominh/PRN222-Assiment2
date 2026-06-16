@@ -1,7 +1,12 @@
-﻿using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Net.Http;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using RagChatbot.BLL.Services.Interfaces;
 
@@ -29,7 +34,7 @@ namespace RagChatbot.BLL.Services.Implements
                 {
                     parts = new[] { new { text = text } }
                 },
-                // 2. CỰC KỲ QUAN TRỌNG: ÉP Google trả về đúng 768 chiều 
+                // 2. CỰC KỲ QUAN TRỌNG: ÉP Google trả về đúng 768 chiều
                 // để khớp tuyệt đối với cấu hình PostgreSQL của bạn
                 outputDimensionality = 768
             };
@@ -52,7 +57,7 @@ namespace RagChatbot.BLL.Services.Implements
                 .GetProperty("values")
                 .EnumerateArray();
 
-            var vectorList = new System.Collections.Generic.List<float>();
+            var vectorList = new List<float>();
             foreach (var value in values)
             {
                 vectorList.Add(value.GetSingle());
@@ -60,12 +65,59 @@ namespace RagChatbot.BLL.Services.Implements
 
             return vectorList.ToArray();
         }
-        public async Task<string> GenerateChatResponseAsync(string prompt)
-        {
-            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
 
-            // Gắn System Prompt thẳng vào câu hỏi để ép AI không được "bịa" thông tin
-            string fullPrompt = @"
+        public async IAsyncEnumerable<string> GenerateChatResponseStreamAsync(
+            string prompt,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            // Dùng endpoint streaming của Gemini (Server-Sent Events)
+            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?alt=sse&key={_apiKey}";
+
+            var requestBody = new
+            {
+                contents = new[]
+                {
+                    new { parts = new[] { new { text = BuildFullPrompt(prompt) } } }
+                }
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
+            };
+
+            // ResponseHeadersRead: bắt đầu đọc ngay khi có header, không đợi tải hết
+            using var response = await _httpClient.SendAsync(
+                request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorDetail = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new Exception($"Lỗi Gemini Stream API: {errorDetail}");
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+            using var reader = new StreamReader(stream);
+
+            string? line;
+            while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+            {
+                // SSE: mỗi sự kiện là dòng "data: {json}", phân tách bởi dòng trống
+                if (string.IsNullOrWhiteSpace(line) || !line.StartsWith("data:"))
+                    continue;
+
+                string json = line.Substring("data:".Length).Trim();
+                if (json == "[DONE]")
+                    break;
+
+                string? delta = ExtractText(json);
+                if (!string.IsNullOrEmpty(delta))
+                    yield return delta;
+            }
+        }
+
+        // Gắn System Prompt thẳng vào câu hỏi để ép AI không được "bịa" thông tin
+        private static string BuildFullPrompt(string prompt) => @"
             Bạn là trợ lý học tập AI.
 
             Trước khi trả lời, hãy xác định loại câu hỏi:
@@ -84,35 +136,25 @@ namespace RagChatbot.BLL.Services.Implements
             NGỮ CẢNH:
             " + prompt;
 
-            var requestBody = new
+        // Bóc text từ 1 chunk JSON của Gemini; trả null nếu không có/không hợp lệ
+        private static string? ExtractText(string json)
+        {
+            try
             {
-                contents = new[]
-                {
-                    new { parts = new[] { new { text = fullPrompt } } }
-                }
-            };
+                using var doc = JsonDocument.Parse(json);
+                if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+                    return null;
 
-            var jsonContent = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json");
-            var response = await _httpClient.PostAsync(url, jsonContent);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                string errorDetail = await response.Content.ReadAsStringAsync();
-                throw new System.Exception($"Lỗi Gemini Chat API: {errorDetail}");
+                return candidates[0]
+                    .GetProperty("content")
+                    .GetProperty("parts")[0]
+                    .GetProperty("text")
+                    .GetString();
             }
-
-            var responseString = await response.Content.ReadAsStringAsync();
-            using var jsonDoc = JsonDocument.Parse(responseString);
-
-            // Bóc tách câu trả lời từ JSON trả về của Gemini
-            string answer = jsonDoc.RootElement
-                .GetProperty("candidates")[0]
-                .GetProperty("content")
-                .GetProperty("parts")[0]
-                .GetProperty("text")
-                .GetString() ?? "Không có câu trả lời từ AI";
-
-            return answer;
+            catch
+            {
+                return null;
+            }
         }
     }
 }
