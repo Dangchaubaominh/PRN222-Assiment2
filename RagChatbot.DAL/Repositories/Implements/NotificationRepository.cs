@@ -45,5 +45,22 @@ namespace RagChatbot.DAL.Repositories.Implements
             foreach (var n in unread) n.IsRead = true;
             _context.SaveChanges();
         }
+
+        public void Delete(int id, int userId)
+        {
+            // Chỉ xóa được thông báo của chính mình
+            var n = _context.Notifications.FirstOrDefault(x => x.Id == id && x.UserId == userId);
+            if (n == null) return;
+            _context.Notifications.Remove(n);
+            _context.SaveChanges();
+        }
+
+        public void DeleteAll(int userId)
+        {
+            var items = _context.Notifications.Where(n => n.UserId == userId).ToList();
+            if (items.Count == 0) return;
+            _context.Notifications.RemoveRange(items);
+            _context.SaveChanges();
+        }
     }
 }

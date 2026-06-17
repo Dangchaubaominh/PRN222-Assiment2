@@ -17,17 +17,20 @@ namespace RagChatbot.RazorPages.Pages.Member
         private readonly ISubjectService _subjectService;
         private readonly IRealtimeNotifier _notificationService;
         private readonly IHubContext<SubjectHub> _subjectHub;
+        private readonly IDashboardNotifier _dashboard;
 
         public IndexModel(
             IUserSubjectService userSubjectService,
             ISubjectService subjectService,
             IRealtimeNotifier notificationService,
-            IHubContext<SubjectHub> subjectHub)
+            IHubContext<SubjectHub> subjectHub,
+            IDashboardNotifier dashboard)
         {
             _userSubjectService = userSubjectService;
             _subjectService = subjectService;
             _notificationService = notificationService;
             _subjectHub = subjectHub;
+            _dashboard = dashboard;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -99,6 +102,9 @@ namespace RagChatbot.RazorPages.Pages.Member
             // Client tự reload partial theo phân quyền nên môn bị gỡ sẽ biến mất.
             await _subjectHub.Clients.Group(SubjectHub.SubjectListGroup)
                              .SendAsync("SubjectListChanged");
+
+            // Cập nhật số liệu dashboard (số môn/tài liệu của user vừa bị gỡ)
+            await _dashboard.StatsChangedAsync();
 
             TempData["SuccessMessage"] = "Đã xóa thành viên khỏi môn học.";
             return RedirectToPage(new { subjectId });

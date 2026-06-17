@@ -38,6 +38,10 @@ namespace RagChatbot.BLL.Services.Implements
 
         public void MarkAllRead(int userId) => _repository.MarkAllRead(userId);
 
+        public void Delete(int id, int userId) => _repository.Delete(id, userId);
+
+        public void DeleteAll(int userId) => _repository.DeleteAll(userId);
+
         private static NotificationDto ToDto(Notification n) => new NotificationDto
         {
             Id        = n.Id,

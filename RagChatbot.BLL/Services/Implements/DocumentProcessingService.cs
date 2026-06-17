@@ -8,10 +8,13 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Configuration;
 using UglyToad.PdfPig;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 using Pgvector;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
+using Tesseract;
 
 namespace RagChatbot.BLL.Services.Implements
 {
@@ -20,12 +23,14 @@ namespace RagChatbot.BLL.Services.Implements
         private readonly IDocumentRepository _documentRepo;
         private readonly IAIService _aiService;
         private readonly ApplicationDbContext _context;
+        private readonly IConfiguration _config;
 
-        public DocumentProcessingService(IDocumentRepository documentRepo, IAIService aiService, ApplicationDbContext context)
+        public DocumentProcessingService(IDocumentRepository documentRepo, IAIService aiService, ApplicationDbContext context, IConfiguration config)
         {
             _documentRepo = documentRepo;
             _aiService = aiService;
             _context = context;
+            _config = config;
         }
 
         public async Task<bool> ProcessDocumentAsync(Guid documentId, string rootPath)
@@ -58,6 +63,19 @@ namespace RagChatbot.BLL.Services.Implements
                 else
                 {
                     return false; // Định dạng chưa hỗ trợ
+                }
+
+                // 2b. PDF không có lớp chữ (scan/ảnh) → thử OCR bằng Tesseract
+                if (string.IsNullOrWhiteSpace(fullText) && extension == ".pdf")
+                {
+                    fullText = OcrPdf(physicalPath);
+                }
+
+                // 2c. Vẫn không trích được chữ (file rỗng, mã hoá, OCR không khả dụng) → Failed
+                if (string.IsNullOrWhiteSpace(fullText))
+                {
+                    _documentRepo.UpdateStatus(documentId, DocumentStatus.Failed);
+                    return false;
                 }
 
                 // 3. Semantic Chunking: chia văn bản theo ranh giới đoạn văn / câu
@@ -104,9 +122,59 @@ namespace RagChatbot.BLL.Services.Implements
             using (PdfDocument document = PdfDocument.Open(filePath))
             {
                 foreach (var page in document.GetPages())
-                    sb.AppendLine(page.Text);
+                {
+                    // ContentOrderTextExtractor sắp xếp chữ theo đúng thứ tự đọc
+                    // (tốt hơn page.Text cho PDF nhiều cột / bố cục phức tạp).
+                    string pageText;
+                    try { pageText = ContentOrderTextExtractor.GetText(page); }
+                    catch { pageText = page.Text; }
+
+                    if (string.IsNullOrWhiteSpace(pageText))
+                        pageText = page.Text; // fallback
+
+                    if (!string.IsNullOrWhiteSpace(pageText))
+                        sb.AppendLine(pageText);
+                }
             }
             return sb.ToString();
+        }
+
+        // OCR cho PDF scan/ảnh: render từng trang thành ảnh rồi nhận dạng bằng Tesseract.
+        // Best-effort: nếu thiếu native/tessdata hoặc lỗi → trả rỗng (tài liệu sẽ bị Failed).
+        private string OcrPdf(string filePath)
+        {
+            try
+            {
+                string tessPath = _config["Ocr:TessDataPath"];
+                if (string.IsNullOrWhiteSpace(tessPath))
+                    tessPath = Path.Combine(AppContext.BaseDirectory, "tessdata");
+                if (!Directory.Exists(tessPath))
+                    return string.Empty;
+
+                string langs = _config["Ocr:Languages"];
+                if (string.IsNullOrWhiteSpace(langs))
+                    langs = "vie+eng";
+
+                byte[] pdfBytes = File.ReadAllBytes(filePath);
+                var sb = new StringBuilder();
+
+                using var engine = new TesseractEngine(tessPath, langs, EngineMode.Default);
+                foreach (var bitmap in PDFtoImage.Conversion.ToImages(pdfBytes))
+                {
+                    using (bitmap)
+                    using (var data = bitmap.Encode(SkiaSharp.SKEncodedImageFormat.Png, 100))
+                    using (var pix = Pix.LoadFromMemory(data.ToArray()))
+                    using (var page = engine.Process(pix))
+                    {
+                        sb.AppendLine(page.GetText());
+                    }
+                }
+                return sb.ToString();
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
 
         private string ExtractTextFromDocx(string filePath)

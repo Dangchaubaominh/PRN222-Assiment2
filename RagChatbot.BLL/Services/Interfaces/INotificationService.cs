@@ -13,5 +13,7 @@ namespace RagChatbot.BLL.Services.Interfaces
         IEnumerable<NotificationDto> GetRecent(int userId, int take = 20);
         int GetUnreadCount(int userId);
         void MarkAllRead(int userId);
+        void Delete(int id, int userId);
+        void DeleteAll(int userId);
     }
 }
