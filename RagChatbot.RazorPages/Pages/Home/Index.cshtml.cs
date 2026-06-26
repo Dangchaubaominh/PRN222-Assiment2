@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.RazorPages.Services;
+using System.Security.Claims;
 
 namespace RagChatbot.RazorPages.Pages.Home
 {
@@ -10,17 +11,20 @@ namespace RagChatbot.RazorPages.Pages.Home
     public class IndexModel : PageModel
     {
         private readonly ISubjectService _subjectService;
+        private readonly IUserSubjectService _userSubjectService;
         private readonly IUserService _userService;
         private readonly IDocumentService _documentService;
         private readonly IPresenceTracker _presence;
 
         public IndexModel(
             ISubjectService subjectService,
+            IUserSubjectService userSubjectService,
             IUserService userService,
             IDocumentService documentService,
             IPresenceTracker presence)
         {
             _subjectService = subjectService;
+            _userSubjectService = userSubjectService;
             _userService = userService;
             _documentService = documentService;
             _presence = presence;
@@ -33,7 +37,9 @@ namespace RagChatbot.RazorPages.Pages.Home
 
         private void LoadStats()
         {
-            SubjectCount = _subjectService.GetAllSubjects().Count();
+            SubjectCount = User.IsInRole("Admin")
+                ? _subjectService.GetAllSubjects().Count()
+                : _userSubjectService.GetAssignedSubjects(int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!)).Count();
             UserCount = _userService.GetAllUsers().Count();
             DocumentCount = _documentService.CountAllDocuments();
             OnlineCount = _presence.OnlineCount;

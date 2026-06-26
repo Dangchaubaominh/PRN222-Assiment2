@@ -5,6 +5,7 @@ using RagChatbot.DAL.Repositories.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -23,9 +24,9 @@ namespace RagChatbot.BLL.Services.Implements
 
         public async Task<ChatResult> AskAsync(Guid subjectId, string userMessage, CancellationToken cancellationToken = default)
         {
-            // Giai đoạn chuẩn bị: nhúng câu hỏi + tìm chunk gần nhất (kèm nguồn)
             string? prepError = null;
             List<DocumentChunk> chunks = new();
+
             try
             {
                 float[] questionVector = await _aiService.GenerateEmbeddingAsync(userMessage);
@@ -42,16 +43,40 @@ namespace RagChatbot.BLL.Services.Implements
             if (!chunks.Any())
                 return new ChatResult { Answer = Single("Môn học này hiện chưa có tài liệu nào. Vui lòng upload tài liệu trước khi hỏi.") };
 
-            // Ghép context + danh sách nguồn (tên tài liệu, không trùng)
-            string contextText = string.Join("\n\n---\n\n", chunks.Select(c => c.TextContent));
             var sources = chunks
-                .Select(c => c.Document?.FileName)
-                .Where(f => !string.IsNullOrEmpty(f))
-                .Distinct()
-                .Cast<string>()
+                .Select((chunk, index) => new SourceCitationDto
+                {
+                    DocumentId = chunk.DocumentId,
+                    ChunkId = chunk.Id,
+                    FileName = chunk.Document?.FileName ?? "Unknown document",
+                    PageNumber = chunk.PageNumber,
+                    ChunkIndex = chunk.ChunkIndex ?? index + 1,
+                    Snippet = BuildSnippet(chunk.TextContent)
+                })
                 .ToList();
 
-            string finalPrompt = $"TÀI LIỆU CUNG CẤP:\n{contextText}\n\nCÂU HỎI CỦA NGƯỜI DÙNG:\n{userMessage}";
+            string contextText = string.Join("\n\n---\n\n", chunks.Select((chunk, index) =>
+            {
+                int sourceNumber = index + 1;
+                string fileName = chunk.Document?.FileName ?? "Unknown document";
+                string pageText = chunk.PageNumber.HasValue ? $", trang {chunk.PageNumber.Value}" : "";
+                int chunkIndex = chunk.ChunkIndex ?? sourceNumber;
+
+                return $"[Nguồn {sourceNumber}: file \"{fileName}\"{pageText}, đoạn {chunkIndex}]\n{chunk.TextContent}";
+            }));
+
+            string finalPrompt = $"""
+            TÀI LIỆU CUNG CẤP:
+            {contextText}
+
+            CÂU HỎI CỦA NGƯỜI DÙNG:
+            {userMessage}
+
+            YÊU CẦU TRẢ LỜI:
+            - Trả lời dựa trên tài liệu được cung cấp.
+            - Khi nêu thông tin lấy từ tài liệu, có thể ghi số nguồn dạng [Nguồn 1], [Nguồn 2] nếu phù hợp.
+            - Không tự tạo tên file, số trang hoặc số đoạn ngoài metadata nguồn ở trên.
+            """;
 
             return new ChatResult
             {
@@ -60,11 +85,23 @@ namespace RagChatbot.BLL.Services.Implements
             };
         }
 
-        // Bọc một thông báo đơn thành luồng 1 phần tử
         private static async IAsyncEnumerable<string> Single(string message)
         {
             yield return message;
             await Task.CompletedTask;
+        }
+
+        private static string BuildSnippet(string? text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return "";
+
+            string normalized = Regex.Replace(text, @"\s+", " ").Trim();
+            const int maxLength = 240;
+
+            return normalized.Length <= maxLength
+                ? normalized
+                : normalized.Substring(0, maxLength).TrimEnd() + "...";
         }
     }
 }

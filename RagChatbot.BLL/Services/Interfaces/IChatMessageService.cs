@@ -6,7 +6,7 @@ namespace RagChatbot.BLL.Services.Interfaces
 {
     public interface IChatMessageService
     {
-        void Save(int userId, Guid subjectId, string sender, string content);
+        void Save(int userId, Guid subjectId, string sender, string content, IReadOnlyList<SourceCitationDto>? sources = null);
         IEnumerable<ChatMessageDto> GetHistory(int userId, Guid subjectId, int take = 50);
     }
 }

@@ -9,7 +9,7 @@ namespace RagChatbot.BLL.DTOs
     /// </summary>
     public class ChatResult
     {
-        public IReadOnlyList<string> Sources { get; init; } = Array.Empty<string>();
+        public IReadOnlyList<SourceCitationDto> Sources { get; init; } = Array.Empty<SourceCitationDto>();
         public IAsyncEnumerable<string> Answer { get; init; } = default!;
     }
 }

@@ -19,6 +19,8 @@ namespace RagChatbot.DAL.Entities
         [Required]
         public string Content { get; set; }
 
+        public string? SourcesJson { get; set; }
+
         public DateTime CreatedAt { get; set; }
     }
 }

@@ -90,7 +90,8 @@ namespace RagChatbot.BLL.Services.Implements
                 .Select((chunk, index) => new DocumentChunkDto
                 {
                     Id          = chunk.Id,
-                    Index       = index + 1,
+                    Index       = chunk.ChunkIndex ?? index + 1,
+                    PageNumber  = chunk.PageNumber,
                     TextContent = chunk.TextContent,
                     WordCount   = chunk.TextContent?.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length ?? 0
                 });

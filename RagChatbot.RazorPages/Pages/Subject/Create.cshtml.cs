@@ -6,6 +6,7 @@ using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.RazorPages.Hubs;
 using RagChatbot.RazorPages.Services;
+using System.Security.Claims;
 
 namespace RagChatbot.RazorPages.Pages.Subject
 {
@@ -13,12 +14,18 @@ namespace RagChatbot.RazorPages.Pages.Subject
     public class CreateModel : PageModel
     {
         private readonly ISubjectService _subjectService;
+        private readonly IUserSubjectService _userSubjectService;
         private readonly IHubContext<SubjectHub> _subjectHub;
         private readonly IDashboardNotifier _dashboard;
 
-        public CreateModel(ISubjectService subjectService, IHubContext<SubjectHub> subjectHub, IDashboardNotifier dashboard)
+        public CreateModel(
+            ISubjectService subjectService,
+            IUserSubjectService userSubjectService,
+            IHubContext<SubjectHub> subjectHub,
+            IDashboardNotifier dashboard)
         {
             _subjectService = subjectService;
+            _userSubjectService = userSubjectService;
             _subjectHub = subjectHub;
             _dashboard = dashboard;
         }
@@ -32,15 +39,22 @@ namespace RagChatbot.RazorPages.Pages.Subject
 
         public async Task<IActionResult> OnPostAsync()
         {
-            if (ModelState.IsValid)
+            if (!ModelState.IsValid)
+                return Page();
+
+            _subjectService.CreateSubject(Subject);
+
+            if (User.IsInRole("Lecturer"))
             {
-                _subjectService.CreateSubject(Subject);
-                await _subjectHub.Clients.Group(SubjectHub.SubjectListGroup).SendAsync("SubjectListChanged");
-                await _dashboard.StatsChangedAsync();
-                TempData["SuccessMessage"] = $"Đã tạo môn học \"{Subject.Name}\" thành công.";
-                return RedirectToPage("Index");
+                int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                _userSubjectService.Assign(userId, Subject.Id);
             }
-            return Page();
+
+            await _subjectHub.Clients.Group(SubjectHub.SubjectListGroup).SendAsync("SubjectListChanged");
+            await _dashboard.StatsChangedAsync();
+
+            TempData["SuccessMessage"] = $"Đã tạo môn học \"{Subject.Name}\" thành công.";
+            return RedirectToPage("Index");
         }
     }
 }

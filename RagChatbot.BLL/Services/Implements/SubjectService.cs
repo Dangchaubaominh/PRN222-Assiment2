@@ -35,13 +35,15 @@ namespace RagChatbot.BLL.Services.Implements
 
         public bool CreateSubject(SubjectDto subjectDto)
         {
+            subjectDto.Id = Guid.NewGuid();
             var entity = new Subject
             {
-                Id = Guid.NewGuid(),
+                Id = subjectDto.Id,
                 Code = subjectDto.Code,
                 Name = subjectDto.Name,
                 CreatedAt = DateTime.UtcNow
             };
+            subjectDto.CreatedAt = entity.CreatedAt;
             _subjectRepository.Add(entity);
             return true;
         }

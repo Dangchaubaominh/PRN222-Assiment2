@@ -6,6 +6,7 @@ namespace RagChatbot.BLL.DTOs
     {
         public Guid Id { get; set; }
         public int Index { get; set; }        // Số thứ tự chunk (bắt đầu từ 1)
+        public int? PageNumber { get; set; }
         public string TextContent { get; set; }
         public int WordCount { get; set; }
     }

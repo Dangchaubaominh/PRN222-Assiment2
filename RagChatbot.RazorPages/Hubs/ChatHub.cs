@@ -1,6 +1,7 @@
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
+using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
 
 namespace RagChatbot.RazorPages.Hubs
@@ -62,13 +63,47 @@ namespace RagChatbot.RazorPages.Hubs
                 await Clients.Caller.SendAsync("ReceiveDone");
 
                 // Lưu câu trả lời của AI
-                _history.Save(userId, subjectId, "assistant", sb.ToString());
+                _history.Save(userId, subjectId, "assistant", sb.ToString(), result.Sources);
             }
             catch
             {
                 await Clients.Caller.SendAsync("ReceiveError",
                     "❌ Có lỗi xảy ra khi xử lý câu hỏi. Vui lòng thử lại.");
             }
+        }
+
+        private static string AppendSourcesMarkdown(string answer, IReadOnlyList<SourceCitationDto> sources)
+        {
+            if (sources.Count == 0)
+                return answer;
+
+            var sb = new StringBuilder(answer.TrimEnd());
+            sb.AppendLine();
+            sb.AppendLine();
+            sb.AppendLine("**Nguồn tham khảo:**");
+
+            for (int i = 0; i < sources.Count; i++)
+            {
+                var source = sources[i];
+                var locationParts = new List<string>();
+
+                if (source.PageNumber.HasValue)
+                    locationParts.Add($"trang {source.PageNumber.Value}");
+
+                if (source.ChunkIndex > 0)
+                    locationParts.Add($"đoạn {source.ChunkIndex}");
+
+                string location = locationParts.Count > 0
+                    ? $" ({string.Join(", ", locationParts)})"
+                    : "";
+
+                sb.AppendLine($"{i + 1}. `{source.FileName}`{location}");
+
+                if (!string.IsNullOrWhiteSpace(source.Snippet))
+                    sb.AppendLine($"   > {source.Snippet}");
+            }
+
+            return sb.ToString();
         }
     }
 }

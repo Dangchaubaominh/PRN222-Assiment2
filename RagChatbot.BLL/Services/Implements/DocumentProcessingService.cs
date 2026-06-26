@@ -37,23 +37,23 @@ namespace RagChatbot.BLL.Services.Implements
             string physicalPath = Path.Combine(rootPath, doc.FilePath.TrimStart('/'));
             if (!File.Exists(physicalPath)) return false;
 
-            // 2. Đọc toàn bộ nội dung chữ (Hỗ trợ TXT và PDF)
-            string fullText = string.Empty;
+            // 2. Đọc nội dung chữ và giữ lại metadata nguồn nếu định dạng hỗ trợ
+            List<TextSegment> textSegments = new();
             var extension = Path.GetExtension(doc.FileName).ToLower();
 
             try
             {
                 if (extension == ".txt")
                 {
-                    fullText = await File.ReadAllTextAsync(physicalPath);
+                    textSegments.Add(new TextSegment(await File.ReadAllTextAsync(physicalPath), null));
                 }
                 else if (extension == ".pdf")
                 {
-                    fullText = ExtractTextFromPdf(physicalPath);
+                    textSegments.AddRange(ExtractTextFromPdf(physicalPath));
                 }
                 else if (extension == ".docx" || extension == ".doc")
                 {
-                    fullText = ExtractTextFromDocx(physicalPath);
+                    textSegments.Add(new TextSegment(ExtractTextFromDocx(physicalPath), null));
                 }
                 else
                 {
@@ -62,22 +62,29 @@ namespace RagChatbot.BLL.Services.Implements
 
                 // 3. Semantic Chunking: chia văn bản theo ranh giới đoạn văn / câu
                 //    (không bao giờ cắt giữa câu, overlap theo câu thay vì từ)
-                var chunks = SemanticChunker.SplitText(fullText,
-                                                       maxWordsPerChunk: 400,
-                                                       overlapSentences:  2);
+                var chunks = textSegments
+                    .Where(segment => !string.IsNullOrWhiteSpace(segment.Text))
+                    .SelectMany(segment => SemanticChunker.SplitText(segment.Text,
+                                                                     maxWordsPerChunk: 400,
+                                                                     overlapSentences:  2)
+                                                          .Select(text => new TextSegment(text, segment.PageNumber)))
+                    .ToList();
 
                 // 4. Gọi AI chuyển từng chunk thành Vector embedding 768 chiều
                 doc.Status = DocumentStatus.Processing;
                 await _context.SaveChangesAsync();
 
+                int chunkIndex = 1;
                 foreach (var chunk in chunks)
                 {
-                    float[] vectorArray = await _aiService.GenerateEmbeddingAsync(chunk);
+                    float[] vectorArray = await _aiService.GenerateEmbeddingAsync(chunk.Text);
                     var docChunk = new DocumentChunk
                     {
                         Id          = Guid.NewGuid(),
                         DocumentId  = documentId,
-                        TextContent = chunk,
+                        TextContent = chunk.Text,
+                        ChunkIndex  = chunkIndex++,
+                        PageNumber  = chunk.PageNumber,
                         Embedding   = new Vector(vectorArray)
                     };
                     _context.DocumentChunks.Add(docChunk);
@@ -98,15 +105,15 @@ namespace RagChatbot.BLL.Services.Implements
             }
         }
 
-        private string ExtractTextFromPdf(string filePath)
+        private List<TextSegment> ExtractTextFromPdf(string filePath)
         {
-            var sb = new StringBuilder();
+            var segments = new List<TextSegment>();
             using (PdfDocument document = PdfDocument.Open(filePath))
             {
                 foreach (var page in document.GetPages())
-                    sb.AppendLine(page.Text);
+                    segments.Add(new TextSegment(page.Text, page.Number));
             }
-            return sb.ToString();
+            return segments;
         }
 
         private string ExtractTextFromDocx(string filePath)
@@ -124,5 +131,7 @@ namespace RagChatbot.BLL.Services.Implements
             }
             return sb.ToString();
         }
+
+        private sealed record TextSegment(string Text, int? PageNumber);
     }
 }

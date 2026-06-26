@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.DAL.Entities;
@@ -17,7 +18,7 @@ namespace RagChatbot.BLL.Services.Implements
             _repository = repository;
         }
 
-        public void Save(int userId, Guid subjectId, string sender, string content)
+        public void Save(int userId, Guid subjectId, string sender, string content, IReadOnlyList<SourceCitationDto>? sources = null)
         {
             if (string.IsNullOrWhiteSpace(content)) return;
             _repository.Add(new ChatMessage
@@ -26,6 +27,7 @@ namespace RagChatbot.BLL.Services.Implements
                 SubjectId = subjectId,
                 Sender    = sender,
                 Content   = content,
+                SourcesJson = sources is { Count: > 0 } ? JsonSerializer.Serialize(sources) : null,
                 CreatedAt = DateTime.UtcNow
             });
         }
@@ -35,7 +37,27 @@ namespace RagChatbot.BLL.Services.Implements
             {
                 Sender    = m.Sender,
                 Content   = m.Content,
+                Sources   = DeserializeSources(m.SourcesJson),
                 CreatedAt = m.CreatedAt
             });
+
+        private static IReadOnlyList<SourceCitationDto> DeserializeSources(string? sourcesJson)
+        {
+            if (string.IsNullOrWhiteSpace(sourcesJson))
+                return Array.Empty<SourceCitationDto>();
+
+            try
+            {
+                var sources = JsonSerializer.Deserialize<List<SourceCitationDto>>(sourcesJson);
+                if (sources == null)
+                    return Array.Empty<SourceCitationDto>();
+
+                return sources;
+            }
+            catch (JsonException)
+            {
+                return Array.Empty<SourceCitationDto>();
+            }
+        }
     }
 }

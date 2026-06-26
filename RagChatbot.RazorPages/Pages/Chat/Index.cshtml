@@ -1,16 +1,16 @@
 @page
 @model RagChatbot.RazorPages.Pages.Chat.IndexModel
+@using System.Text.Json
 @{
     ViewData["Title"] = "Chat AI";
 }
 
 <div class="chat-wrapper fade-in-up">
-    <!-- Header -->
     <div class="chat-header">
-        <div class="chat-avatar">🤖</div>
+        <div class="chat-avatar">AI</div>
         <div>
-            <div class="chat-title">Trợ lý AI — RAG Chatbot</div>
-            <div class="chat-subtitle" id="chatStatus">Đang kết nối real-time…</div>
+            <div class="chat-title">Trợ lý AI - RAG Chatbot</div>
+            <div class="chat-subtitle" id="chatStatus">Đang kết nối real-time...</div>
         </div>
         <div style="margin-left:auto">
             <a href="@Url.Page("/Subject/Index")" class="btn-app btn-sm-app"
@@ -20,14 +20,13 @@
         </div>
     </div>
 
-    <!-- Messages -->
     <div class="chat-messages" id="chatMessages">
         @if (!Model.History.Any())
         {
             <div class="msg-row ai">
                 <div class="msg-avatar ai"><i class="bi bi-robot"></i></div>
                 <div class="msg-bubble ai">
-                    <strong>Xin chào! 👋</strong><br/>
+                    <strong>Xin chào!</strong><br />
                     Tôi là trợ lý AI đã được học từ tài liệu của môn học này.
                     Bạn có thể hỏi tôi bất cứ điều gì liên quan đến nội dung tài liệu.
                 </div>
@@ -41,7 +40,7 @@
                 {
                     <div class="msg-row ai">
                         <div class="msg-avatar ai"><i class="bi bi-robot"></i></div>
-                        <div class="msg-bubble ai md-render">@m.Content</div>
+                        <div class="msg-bubble ai md-render" data-sources="@JsonSerializer.Serialize(m.Sources)">@m.Content</div>
                     </div>
                 }
                 else
@@ -55,7 +54,6 @@
         }
     </div>
 
-    <!-- Input -->
     <div class="chat-input-area">
         <input type="hidden" id="SubjectId" value="@Model.SubjectId" />
         <input type="text" id="userInput" class="chat-input"
@@ -67,7 +65,6 @@
 </div>
 
 @section Scripts {
-@* signalR client đã được nạp sẵn trong _Layout *@
 <script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
 <style>
@@ -76,13 +73,38 @@
     .msg-bubble.ai pre { background: rgba(0,0,0,.06); padding: 10px 12px; border-radius: 8px; overflow-x: auto; }
     .msg-bubble.ai code { font-family: 'Consolas','Courier New',monospace; font-size: 13px; }
     .msg-bubble.ai ul, .msg-bubble.ai ol { margin: 6px 0; padding-left: 20px; }
-    .msg-sources {
-        margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--border);
-        font-size: 11.5px; color: var(--text-3); display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    .msg-bubble.ai blockquote {
+        margin: 6px 0 0; padding: 0 0 0 10px; border-left: 3px solid rgba(99,102,241,.35);
+        color: var(--text-3);
     }
-    .msg-sources .src-chip {
-        background: rgba(99,102,241,.1); color: var(--primary);
-        padding: 1px 8px; border-radius: 20px; font-weight: 600;
+    .msg-sources {
+        margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--border);
+        font-size: 12px; color: var(--text-3);
+    }
+    .msg-sources-title {
+        display: flex; align-items: center; gap: 6px; margin-bottom: 6px;
+        color: var(--text-2); font-weight: 700;
+    }
+    .source-list { display: grid; gap: 6px; }
+    .source-item {
+        padding: 7px 8px; border: 1px solid rgba(99,102,241,.16);
+        border-radius: 8px; background: rgba(99,102,241,.06);
+    }
+    .source-meta {
+        display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+        color: var(--text-2); font-weight: 600;
+    }
+    .source-number {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px;
+        background: rgba(99,102,241,.14); color: var(--primary);
+        font-size: 11px; font-weight: 800;
+    }
+    .source-file { overflow-wrap: anywhere; }
+    .source-location { color: var(--text-3); font-weight: 500; }
+    .source-snippet {
+        margin-top: 5px; line-height: 1.45; color: var(--text-3);
+        overflow-wrap: anywhere;
     }
 </style>
 <script>
@@ -92,20 +114,20 @@
     const statusEl   = document.getElementById('chatStatus');
     const subjectId  = document.getElementById('SubjectId').value;
 
-    // Markdown -> HTML rồi sanitize chống XSS trước khi gắn vào DOM
     function mdSafe(text) {
         return DOMPurify.sanitize(marked.parse(text || ''));
     }
 
-    // Render Markdown cho các câu trả lời AI có sẵn trong lịch sử
     document.querySelectorAll('.msg-bubble.md-render').forEach(el => {
+        const sources = parseSources(el.dataset.sources);
         el.innerHTML = mdSafe(el.textContent);
+        appendSources(el, sources);
     });
     messagesEl.scrollTop = messagesEl.scrollHeight;
 
     let loadingId    = null;
-    let streamBubble = null;   // bong bóng AI đang stream
-    let streamRaw    = '';     // nội dung thô (markdown) đang tích lũy
+    let streamBubble = null;
+    let streamRaw    = '';
 
     const connection = new signalR.HubConnectionBuilder()
         .withUrl('/chatHub')
@@ -118,7 +140,6 @@
         appendHtml('Đang tìm kiếm trong tài liệu<span class="typing-dots"></span>', 'ai', loadingId);
     });
 
-    // Nối từng đoạn → render Markdown trực tiếp vào cùng bong bóng
     connection.on('ReceiveChunk', delta => {
         if (!streamBubble) { removeLoading(); streamBubble = startStreamBubble(); streamRaw = ''; }
         streamRaw += delta;
@@ -126,19 +147,41 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
     });
 
-    // Danh sách nguồn trích dẫn → gắn footer vào bong bóng hiện tại
     connection.on('ReceiveSources', sources => {
         if (!streamBubble || !sources || !sources.length) return;
-        const foot = document.createElement('div');
-        foot.className = 'msg-sources';
-        foot.innerHTML = '<i class="bi bi-journal-text"></i> Nguồn: ' +
-            sources.map(s => '<span class="src-chip"></span>').join(' ');
-        // gán tên file an toàn bằng textContent
-        const chips = foot.querySelectorAll('.src-chip');
-        sources.forEach((s, i) => { if (chips[i]) chips[i].textContent = s; });
-        streamBubble.appendChild(foot);
+        appendSources(streamBubble, sources);
         messagesEl.scrollTop = messagesEl.scrollHeight;
     });
+
+    function appendSources(bubble, sources) {
+        if (!bubble || !sources || !sources.length) return;
+
+        const foot = document.createElement('div');
+        foot.className = 'msg-sources';
+
+        const title = document.createElement('div');
+        title.className = 'msg-sources-title';
+        title.innerHTML = '<i class="bi bi-journal-text"></i><span>Nguồn tham khảo</span>';
+        foot.appendChild(title);
+
+        const list = document.createElement('div');
+        list.className = 'source-list';
+        sources.forEach((source, index) => list.appendChild(createSourceItem(source, index)));
+        foot.appendChild(list);
+
+        bubble.appendChild(foot);
+    }
+
+    function parseSources(json) {
+        if (!json) return [];
+
+        try {
+            const parsed = JSON.parse(json);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            return [];
+        }
+    }
 
     connection.on('ReceiveDone', () => { streamBubble = null; unlockInput(); });
 
@@ -149,9 +192,9 @@
         unlockInput();
     });
 
-    connection.onreconnecting(() => { statusEl.textContent = 'Đang kết nối lại…'; lockInput(); });
+    connection.onreconnecting(() => { statusEl.textContent = 'Đang kết nối lại...'; lockInput(); });
     connection.onreconnected(()  => { statusEl.textContent = 'Đã sẵn sàng trả lời dựa trên tài liệu môn học'; unlockInput(); });
-    connection.onclose(()        => { statusEl.textContent = 'Mất kết nối — hãy tải lại trang.'; lockInput(); });
+    connection.onclose(()        => { statusEl.textContent = 'Mất kết nối - hãy tải lại trang.'; lockInput(); });
 
     connection.start()
         .then(() => {
@@ -159,7 +202,7 @@
             unlockInput();
             inputEl.focus();
         })
-        .catch(() => { statusEl.textContent = '❌ Không kết nối được máy chủ real-time.'; });
+        .catch(() => { statusEl.textContent = 'Không kết nối được máy chủ real-time.'; });
 
     inputEl.addEventListener('keydown', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -175,7 +218,7 @@
         connection.invoke('StreamMessage', subjectId, text)
             .catch(() => {
                 removeLoading(); streamBubble = null;
-                appendHtml('', 'ai', null, '❌ Lỗi gửi câu hỏi đến máy chủ. Vui lòng thử lại.');
+                appendHtml('', 'ai', null, 'Lỗi gửi câu hỏi đến máy chủ. Vui lòng thử lại.');
                 unlockInput();
             });
     }
@@ -198,7 +241,6 @@
         return bubble;
     }
 
-    // Tin nhắn người dùng (text thuần, an toàn)
     function appendUserMsg(text) {
         const row = document.createElement('div');
         row.className = 'msg-row user';
@@ -214,7 +256,6 @@
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    // Bong bóng AI dạng HTML (loading) hoặc text thuần (lỗi) — dùng cho thông báo hệ thống
     function appendHtml(html, type, id, textContent) {
         const row = document.createElement('div');
         row.className = 'msg-row ' + type;
@@ -236,6 +277,61 @@
         row.appendChild(bubble);
         messagesEl.appendChild(row);
         messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function normalizeSource(source) {
+        if (typeof source === 'string') {
+            return { fileName: source, pageNumber: null, chunkIndex: null, snippet: '' };
+        }
+
+        return {
+            fileName: source.fileName || source.FileName || 'Unknown document',
+            pageNumber: source.pageNumber ?? source.PageNumber ?? null,
+            chunkIndex: source.chunkIndex ?? source.ChunkIndex ?? null,
+            snippet: source.snippet || source.Snippet || ''
+        };
+    }
+
+    function createSourceItem(rawSource, index) {
+        const source = normalizeSource(rawSource);
+        const item = document.createElement('div');
+        item.className = 'source-item';
+
+        const meta = document.createElement('div');
+        meta.className = 'source-meta';
+
+        const number = document.createElement('span');
+        number.className = 'source-number';
+        number.textContent = index + 1;
+
+        const file = document.createElement('span');
+        file.className = 'source-file';
+        file.textContent = source.fileName;
+
+        meta.appendChild(number);
+        meta.appendChild(file);
+
+        const location = [];
+        if (source.pageNumber) location.push('trang ' + source.pageNumber);
+        if (source.chunkIndex) location.push('đoạn ' + source.chunkIndex);
+
+        if (location.length) {
+            const locationEl = document.createElement('span');
+            locationEl.className = 'source-location';
+            locationEl.textContent = '(' + location.join(', ') + ')';
+            meta.appendChild(locationEl);
+        }
+
+        item.appendChild(meta);
+
+        if (source.snippet) {
+            const snippet = document.createElement('div');
+            snippet.className = 'source-snippet';
+            snippet.textContent = source.snippet;
+            item.appendChild(snippet);
+        }
+
+        return item;
     }
 </script>
 }
