@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -30,9 +30,20 @@ namespace RagChatbot.DAL.Entities
 
         public DocumentStatus Status { get; set; } = DocumentStatus.Pending;
 
+        [StringLength(200)]
+        [Column(TypeName = "varchar(200)")]
+        public string? ProgressMessage { get; set; }
+
+        public DocumentAccessLevel AccessLevel { get; set; } = DocumentAccessLevel.Public;
+
+        public int? UploadedById { get; set; }
+
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;
 
         [ForeignKey("SubjectId")]
         public virtual Subject Subject { get; set; }
+
+        [ForeignKey("UploadedById")]
+        public virtual User UploadedBy { get; set; }
     }
 }

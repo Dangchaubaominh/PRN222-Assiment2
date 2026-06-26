@@ -21,9 +21,20 @@ namespace RagChatbot.BLL.Services.Implements
             _chunkRepository = chunkRepository;
         }
 
-        public IEnumerable<DocumentDto> GetDocumentsBySubject(Guid subjectId)
+        public IEnumerable<DocumentDto> GetDocumentsBySubject(Guid subjectId, int currentUserId, string currentUserRole)
         {
-            return _documentRepository.GetDocumentsBySubjectId(subjectId).Select(ToDto);
+            var query = _documentRepository.GetDocumentsBySubjectId(subjectId);
+            
+            if (currentUserRole != "Admin")
+            {
+                query = query.Where(d => 
+                    d.AccessLevel == DocumentAccessLevel.Public ||
+                    (d.AccessLevel == DocumentAccessLevel.Private && d.UploadedById == currentUserId) ||
+                    (d.AccessLevel == DocumentAccessLevel.AdminAndLecturerOnly && currentUserRole == "Lecturer")
+                );
+            }
+            
+            return query.Select(ToDto);
         }
 
         public DocumentDto GetDocumentById(Guid id)
@@ -32,7 +43,7 @@ namespace RagChatbot.BLL.Services.Implements
             return entity == null ? null : ToDto(entity);
         }
 
-        public async Task<DocumentUploadResult> UploadDocumentAsync(Guid subjectId, string fileName, Stream fileStream, string uploadPath)
+        public async Task<DocumentUploadResult> UploadDocumentAsync(Guid subjectId, string fileName, Stream fileStream, string uploadPath, int uploaderId, int accessLevel)
         {
             if (_documentRepository.ExistsByFileName(subjectId, fileName))
                 return DocumentUploadResult.Duplicate;
@@ -57,6 +68,8 @@ namespace RagChatbot.BLL.Services.Implements
                     FileName = fileName,
                     FilePath = "/uploads/" + uniqueFileName,
                     Status = DocumentStatus.Pending,
+                    UploadedById = uploaderId,
+                    AccessLevel = (DocumentAccessLevel)accessLevel,
                     UploadedAt = DateTime.UtcNow
                 };
 
@@ -97,13 +110,16 @@ namespace RagChatbot.BLL.Services.Implements
                 });
         }
 
-        private static DocumentDto ToDto(Document d) => new DocumentDto
+    private static DocumentDto ToDto(Document d) => new DocumentDto
         {
             Id = d.Id,
             SubjectId = d.SubjectId,
             FileName = d.FileName,
             FilePath = d.FilePath,
             Status = d.Status.ToString(),
+            ProgressMessage = d.ProgressMessage,
+            AccessLevel = (int)d.AccessLevel,
+            UploadedById = d.UploadedById,
             UploadedAt = d.UploadedAt
         };
     }

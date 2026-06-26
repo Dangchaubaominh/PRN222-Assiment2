@@ -53,10 +53,12 @@ namespace RagChatbot.RazorPages.Pages.Document
         public IActionResult OnGet()
         {
             Subject = _subjectService.GetSubjectById(SubjectId);
-            if (Subject == null) return NotFound();
-            if (!CanAccess(SubjectId)) return Forbid();
+            if (Subject == null || !CanAccess(SubjectId))
+                return Forbid();
 
-            Documents = _documentService.GetDocumentsBySubject(SubjectId);
+            int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            string role = User.FindFirstValue(ClaimTypes.Role) ?? "";
+            Documents = _documentService.GetDocumentsBySubject(SubjectId, userId, role);
             return Page();
         }
 

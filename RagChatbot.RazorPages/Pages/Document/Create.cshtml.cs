@@ -42,6 +42,9 @@ namespace RagChatbot.RazorPages.Pages.Document
         [BindProperty]
         public IFormFile? UploadFile { get; set; }
 
+        [BindProperty]
+        public int AccessLevel { get; set; }
+
         private bool CanAccess(Guid subjectId)
         {
             if (User.IsInRole("Admin")) return true;
@@ -69,7 +72,8 @@ namespace RagChatbot.RazorPages.Pages.Document
 
             using (var stream = UploadFile.OpenReadStream())
             {
-                var result = await _documentService.UploadDocumentAsync(SubjectId, UploadFile.FileName, stream, uploadsFolder);
+                int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                var result = await _documentService.UploadDocumentAsync(SubjectId, UploadFile.FileName, stream, uploadsFolder, userId, AccessLevel);
 
                 switch (result)
                 {
@@ -82,7 +86,9 @@ namespace RagChatbot.RazorPages.Pages.Document
                         return Page();
 
                     case DocumentUploadResult.Success:
-                        var uploadedDoc = _documentService.GetDocumentsBySubject(SubjectId)
+                        int currentUserId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+                        string role = User.FindFirstValue(ClaimTypes.Role) ?? "";
+                        var uploadedDoc = _documentService.GetDocumentsBySubject(SubjectId, currentUserId, role)
                                                           .FirstOrDefault(d => d.FileName == UploadFile.FileName);
                         if (uploadedDoc != null)
                         {

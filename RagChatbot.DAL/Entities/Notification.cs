@@ -21,6 +21,9 @@ namespace RagChatbot.DAL.Entities
 
         public bool IsRead { get; set; }
 
+        [MaxLength(500)]
+        public string? LinkUrl { get; set; }
+
         public DateTime CreatedAt { get; set; }
     }
 }

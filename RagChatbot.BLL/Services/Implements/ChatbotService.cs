@@ -22,7 +22,7 @@ namespace RagChatbot.BLL.Services.Implements
             _aiService = aiService;
         }
 
-        public async Task<ChatResult> AskAsync(Guid subjectId, string userMessage, CancellationToken cancellationToken = default)
+        public async Task<ChatResult> AskAsync(Guid subjectId, string userMessage, int currentUserId, string currentUserRole, CancellationToken cancellationToken = default)
         {
             string? prepError = null;
             List<DocumentChunk> chunks = new();
@@ -30,7 +30,7 @@ namespace RagChatbot.BLL.Services.Implements
             try
             {
                 float[] questionVector = await _aiService.GenerateEmbeddingAsync(userMessage);
-                chunks = (await _chunkRepository.SearchSimilarChunksAsync(subjectId, questionVector, topK: 3)).ToList();
+                chunks = (await _chunkRepository.SearchSimilarChunksAsync(subjectId, questionVector, currentUserId, currentUserRole, topK: 3)).ToList();
             }
             catch (Exception ex)
             {

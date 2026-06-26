@@ -12,6 +12,6 @@ namespace RagChatbot.DAL.Repositories.Interfaces
 
         // Tìm các chunk gần nhất với vector câu hỏi trong phạm vi 1 môn học
         // (kèm Document để lấy nguồn trích dẫn)
-        Task<IEnumerable<DocumentChunk>> SearchSimilarChunksAsync(Guid subjectId, float[] queryVector, int topK = 3);
+        Task<IEnumerable<DocumentChunk>> SearchSimilarChunksAsync(Guid subjectId, float[] queryVector, int currentUserId, string currentUserRole, int topK = 3);
     }
 }

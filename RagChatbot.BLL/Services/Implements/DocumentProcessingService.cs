@@ -1,4 +1,4 @@
-﻿using RagChatbot.BLL.Helpers;
+using RagChatbot.BLL.Helpers;
 using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.DAL.Data;
 using RagChatbot.DAL.Entities;
@@ -33,7 +33,7 @@ namespace RagChatbot.BLL.Services.Implements
             _config = config;
         }
 
-        public async Task<bool> ProcessDocumentAsync(Guid documentId, string rootPath)
+        public async Task<bool> ProcessDocumentAsync(Guid documentId, string rootPath, Action<string>? onProgress = null)
         {
             // 1. Lấy thông tin tài liệu từ DB
             var doc = _documentRepo.GetById(documentId);
@@ -50,14 +50,17 @@ namespace RagChatbot.BLL.Services.Implements
             {
                 if (extension == ".txt")
                 {
+                    onProgress?.Invoke("Đang đọc nội dung text...");
                     textSegments.Add(new TextSegment(await File.ReadAllTextAsync(physicalPath), null));
                 }
                 else if (extension == ".pdf")
                 {
+                    onProgress?.Invoke("Đang đọc nội dung PDF...");
                     textSegments.AddRange(ExtractTextFromPdf(physicalPath));
                 }
                 else if (extension == ".docx" || extension == ".doc")
                 {
+                    onProgress?.Invoke("Đang đọc nội dung Word...");
                     textSegments.Add(new TextSegment(ExtractTextFromDocx(physicalPath), null));
                 }
                 else
@@ -68,6 +71,7 @@ namespace RagChatbot.BLL.Services.Implements
                 // 2b. PDF không có lớp chữ (scan/ảnh) → thử OCR bằng Tesseract
                 if (!textSegments.Any(segment => !string.IsNullOrWhiteSpace(segment.Text)) && extension == ".pdf")
                 {
+                    onProgress?.Invoke("Đang chạy nhận dạng ký tự (OCR)...");
                     textSegments.Add(new TextSegment(OcrPdf(physicalPath), null));
                 }
 
@@ -80,6 +84,7 @@ namespace RagChatbot.BLL.Services.Implements
 
                 // 3. Semantic Chunking: chia văn bản theo ranh giới đoạn văn / câu
                 //    (không bao giờ cắt giữa câu, overlap theo câu thay vì từ)
+                onProgress?.Invoke("Đang chia nhỏ văn bản (Chunking)...");
                 var chunks = textSegments
                     .Where(segment => !string.IsNullOrWhiteSpace(segment.Text))
                     .SelectMany(segment => SemanticChunker.SplitText(segment.Text,
@@ -95,6 +100,7 @@ namespace RagChatbot.BLL.Services.Implements
                 int chunkIndex = 1;
                 foreach (var chunk in chunks)
                 {
+                    onProgress?.Invoke($"Đang nhúng Vector ({chunkIndex}/{chunks.Count})...");
                     float[] vectorArray = await _aiService.GenerateEmbeddingAsync(chunk.Text);
                     var docChunk = new DocumentChunk
                     {
@@ -109,6 +115,7 @@ namespace RagChatbot.BLL.Services.Implements
                 }
 
                 doc.Status = DocumentStatus.Completed;
+                doc.ProgressMessage = "Hoàn tất";
                 await _context.SaveChangesAsync();
 
                 return true;
@@ -118,7 +125,13 @@ namespace RagChatbot.BLL.Services.Implements
                 // Hủy mọi thay đổi đang chờ (các chunk thêm dở dang chưa lưu),
                 // rồi chỉ đánh dấu tài liệu là Failed.
                 _context.ChangeTracker.Clear();
-                _documentRepo.UpdateStatus(documentId, DocumentStatus.Failed);
+                var failedDoc = _documentRepo.GetById(documentId);
+                if (failedDoc != null)
+                {
+                    failedDoc.Status = DocumentStatus.Failed;
+                    failedDoc.ProgressMessage = "Lỗi xử lý";
+                    _context.SaveChanges();
+                }
                 return false;
             }
         }

@@ -17,13 +17,14 @@ namespace RagChatbot.BLL.Services.Implements
             _repository = repository;
         }
 
-        public NotificationDto Create(int userId, string message, string type = "info")
+        public NotificationDto Create(int userId, string message, string type = "info", string? linkUrl = null)
         {
             var entity = new Notification
             {
                 UserId    = userId,
                 Message   = message,
                 Type      = type,
+                LinkUrl   = linkUrl,
                 IsRead    = false,
                 CreatedAt = DateTime.UtcNow
             };
@@ -47,6 +48,7 @@ namespace RagChatbot.BLL.Services.Implements
             Id        = n.Id,
             Message   = n.Message,
             Type      = n.Type,
+            LinkUrl   = n.LinkUrl,
             IsRead    = n.IsRead,
             CreatedAt = n.CreatedAt
         };
