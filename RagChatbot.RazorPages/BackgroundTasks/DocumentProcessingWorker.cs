@@ -62,7 +62,10 @@ namespace RagChatbot.RazorPages.BackgroundTasks
             // Báo "đang xử lý"
             await Notify(group, documentId, "Processing");
 
-            bool ok = await processing.ProcessDocumentAsync(documentId, _env.WebRootPath);
+            bool ok = await processing.ProcessDocumentAsync(documentId, _env.WebRootPath, msg => 
+            {
+                _hub.Clients.Group(group).SendAsync("DocumentProgressChanged", new { documentId, message = msg });
+            });
 
             // Báo kết quả cuối (cập nhật badge trên trang danh sách)
             await Notify(group, documentId, ok ? "Completed" : "Failed");
@@ -81,7 +84,20 @@ namespace RagChatbot.RazorPages.BackgroundTasks
                 await notifier.NotifyUsersAsync(
                     memberIds,
                     $"Môn {label} có tài liệu mới đã sẵn sàng: \"{doc.FileName}\".",
-                    "info");
+                    "info",
+                    $"/Document?subjectId={doc.SubjectId}");
+            }
+            else
+            {
+                var notifier = scope.ServiceProvider.GetRequiredService<IRealtimeNotifier>();
+                if (doc.UploadedById.HasValue)
+                {
+                    await notifier.NotifyUserAsync(
+                        doc.UploadedById.Value,
+                        $"Lỗi xử lý tài liệu \"{doc.FileName}\". Vui lòng kiểm tra lại.",
+                        "error",
+                        $"/Document?subjectId={doc.SubjectId}");
+                }
             }
         }
 

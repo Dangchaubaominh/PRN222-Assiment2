@@ -1,4 +1,5 @@
 using System.Text;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -73,8 +74,9 @@ namespace RagChatbot.RazorPages.Pages.Seeder
                     {
                         // 1. Upload tài liệu qua service
                         using var stream = new MemoryStream(Encoding.UTF8.GetBytes(content));
+                        int uploaderId = int.Parse(User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier)!);
                         var uploadResult = await _documentService.UploadDocumentAsync(
-                            subject.Id, uniqueFileName, stream, uploadsFolder);
+                            subject.Id, uniqueFileName, stream, uploadsFolder, uploaderId, 0 /* Public */);
 
                         if (uploadResult == DocumentUploadResult.Duplicate)
                         {
@@ -88,7 +90,7 @@ namespace RagChatbot.RazorPages.Pages.Seeder
                         }
 
                         // 2. Tìm document vừa tạo
-                        var doc = _documentService.GetDocumentsBySubject(subject.Id)
+                        var doc = _documentService.GetDocumentsBySubject(subject.Id, uploaderId, "Admin")
                                                   .OrderByDescending(d => d.UploadedAt)
                                                   .FirstOrDefault(d => d.FileName == uniqueFileName);
 

@@ -22,6 +22,17 @@ namespace RagChatbot.DAL.Repositories.Implements
             _context.SaveChanges();
         }
 
+        public ChatMessage? GetById(int id)
+        {
+            return _context.ChatMessages.FirstOrDefault(m => m.Id == id);
+        }
+
+        public void Update(ChatMessage message)
+        {
+            _context.ChatMessages.Update(message);
+            _context.SaveChanges();
+        }
+
         public IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int take)
         {
             // Lấy N tin gần nhất rồi đảo lại theo thứ tự thời gian tăng dần

@@ -38,9 +38,13 @@
             {
                 if (m.Sender == "assistant")
                 {
-                    <div class="msg-row ai">
+                    <div class="msg-row ai" data-msg-id="@m.Id">
                         <div class="msg-avatar ai"><i class="bi bi-robot"></i></div>
                         <div class="msg-bubble ai md-render" data-sources="@JsonSerializer.Serialize(m.Sources)">@m.Content</div>
+                        <div class="msg-feedback">
+                            <button class="feedback-btn @(m.Feedback == RagChatbot.DAL.Entities.FeedbackType.Upvote ? "active" : "")" onclick="submitFeedback(@m.Id, 1)" title="Hữu ích"><i class="bi bi-hand-thumbs-up"></i></button>
+                            <button class="feedback-btn @(m.Feedback == RagChatbot.DAL.Entities.FeedbackType.Downvote ? "active" : "")" onclick="submitFeedback(@m.Id, -1)" title="Không hữu ích"><i class="bi bi-hand-thumbs-down"></i></button>
+                        </div>
                     </div>
                 }
                 else
@@ -106,6 +110,17 @@
         margin-top: 5px; line-height: 1.45; color: var(--text-3);
         overflow-wrap: anywhere;
     }
+    .msg-feedback {
+        display: flex; gap: 4px; align-items: center; margin-top: 4px; padding-left: 10px;
+    }
+    .feedback-btn {
+        background: transparent; border: none; color: var(--text-3); font-size: 14px;
+        cursor: pointer; padding: 4px 6px; border-radius: 4px; transition: all .2s;
+    }
+    .feedback-btn:hover { background: rgba(99,102,241,.1); color: var(--primary); }
+    .feedback-btn.active { color: var(--primary); }
+    .feedback-btn.active i::before { content: "\f40f"; /* hand-thumbs-up-fill or similar if bi-hand-thumbs-up */ }
+    .feedback-btn[title="Không hữu ích"].active i::before { content: "\f409"; } /* down-fill */
 </style>
 <script>
     const messagesEl = document.getElementById('chatMessages');
@@ -182,6 +197,52 @@
             return [];
         }
     }
+
+    connection.on('ReceiveMessageId', msgId => {
+        if (streamBubble && streamBubble.parentElement) {
+            const row = streamBubble.parentElement;
+            row.setAttribute('data-msg-id', msgId);
+            
+            const feedbackHtml = `
+                <div class="msg-feedback">
+                    <button class="feedback-btn" onclick="submitFeedback(${msgId}, 1)" title="Hữu ích"><i class="bi bi-hand-thumbs-up"></i></button>
+                    <button class="feedback-btn" onclick="submitFeedback(${msgId}, -1)" title="Không hữu ích"><i class="bi bi-hand-thumbs-down"></i></button>
+                </div>
+            `;
+            row.insertAdjacentHTML('beforeend', feedbackHtml);
+        }
+    });
+
+    connection.on('FeedbackReceived', (msgId, type) => {
+        const row = document.querySelector(`.msg-row.ai[data-msg-id="${msgId}"]`);
+        if (!row) return;
+        const btns = row.querySelectorAll('.feedback-btn');
+        btns[0].classList.toggle('active', type === 1);
+        btns[1].classList.toggle('active', type === -1);
+        
+        if (type === 1) {
+            btns[0].querySelector('i').className = 'bi bi-hand-thumbs-up-fill';
+            btns[1].querySelector('i').className = 'bi bi-hand-thumbs-down';
+        } else if (type === -1) {
+            btns[0].querySelector('i').className = 'bi bi-hand-thumbs-up';
+            btns[1].querySelector('i').className = 'bi-hand-thumbs-down-fill';
+        } else {
+            btns[0].querySelector('i').className = 'bi bi-hand-thumbs-up';
+            btns[1].querySelector('i').className = 'bi bi-hand-thumbs-down';
+        }
+    });
+
+    window.submitFeedback = function(msgId, type) {
+        const row = document.querySelector(`.msg-row.ai[data-msg-id="${msgId}"]`);
+        if (!row) return;
+        
+        // check if already active, toggle off
+        const btns = row.querySelectorAll('.feedback-btn');
+        const isActive = (type === 1 && btns[0].classList.contains('active')) || (type === -1 && btns[1].classList.contains('active'));
+        const finalType = isActive ? null : type;
+        
+        connection.invoke('SubmitFeedback', msgId, finalType).catch(err => console.error(err));
+    };
 
     connection.on('ReceiveDone', () => { streamBubble = null; unlockInput(); });
 

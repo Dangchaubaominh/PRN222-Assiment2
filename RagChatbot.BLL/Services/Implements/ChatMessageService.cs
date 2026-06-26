@@ -18,10 +18,10 @@ namespace RagChatbot.BLL.Services.Implements
             _repository = repository;
         }
 
-        public void Save(int userId, Guid subjectId, string sender, string content, IReadOnlyList<SourceCitationDto>? sources = null)
+        public int Save(int userId, Guid subjectId, string sender, string content, IReadOnlyList<SourceCitationDto>? sources = null)
         {
-            if (string.IsNullOrWhiteSpace(content)) return;
-            _repository.Add(new ChatMessage
+            if (string.IsNullOrWhiteSpace(content)) return 0;
+            var message = new ChatMessage
             {
                 UserId    = userId,
                 SubjectId = subjectId,
@@ -29,15 +29,29 @@ namespace RagChatbot.BLL.Services.Implements
                 Content   = content,
                 SourcesJson = sources is { Count: > 0 } ? JsonSerializer.Serialize(sources) : null,
                 CreatedAt = DateTime.UtcNow
-            });
+            };
+            _repository.Add(message);
+            return message.Id;
+        }
+
+        public void UpdateFeedback(int messageId, int userId, FeedbackType? feedback)
+        {
+            var msg = _repository.GetById(messageId);
+            if (msg != null && msg.UserId == userId)
+            {
+                msg.Feedback = feedback;
+                _repository.Update(msg);
+            }
         }
 
         public IEnumerable<ChatMessageDto> GetHistory(int userId, Guid subjectId, int take = 50)
             => _repository.GetHistory(userId, subjectId, take).Select(m => new ChatMessageDto
             {
+                Id        = m.Id,
                 Sender    = m.Sender,
                 Content   = m.Content,
                 Sources   = DeserializeSources(m.SourcesJson),
+                Feedback  = m.Feedback,
                 CreatedAt = m.CreatedAt
             });
 

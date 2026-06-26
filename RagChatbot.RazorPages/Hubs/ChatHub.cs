@@ -48,7 +48,8 @@ namespace RagChatbot.RazorPages.Hubs
 
             try
             {
-                var result = await _chatbotService.AskAsync(subjectId, userMessage, Context.ConnectionAborted);
+                string role = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+                var result = await _chatbotService.AskAsync(subjectId, userMessage, userId, role, Context.ConnectionAborted);
 
                 var sb = new StringBuilder();
                 await foreach (var piece in result.Answer)
@@ -63,7 +64,9 @@ namespace RagChatbot.RazorPages.Hubs
                 await Clients.Caller.SendAsync("ReceiveDone");
 
                 // Lưu câu trả lời của AI
-                _history.Save(userId, subjectId, "assistant", sb.ToString(), result.Sources);
+                int messageId = _history.Save(userId, subjectId, "assistant", sb.ToString(), result.Sources);
+                
+                await Clients.Caller.SendAsync("ReceiveMessageId", messageId);
             }
             catch
             {
@@ -104,6 +107,22 @@ namespace RagChatbot.RazorPages.Hubs
             }
 
             return sb.ToString();
+        }
+
+        public async Task SubmitFeedback(int messageId, int? feedback)
+        {
+            if (!int.TryParse(Context.UserIdentifier, out int userId)) return;
+            
+            RagChatbot.DAL.Entities.FeedbackType? type = feedback switch
+            {
+                1 => RagChatbot.DAL.Entities.FeedbackType.Upvote,
+                -1 => RagChatbot.DAL.Entities.FeedbackType.Downvote,
+                _ => null
+            };
+            
+            _history.UpdateFeedback(messageId, userId, type);
+            
+            await Clients.Caller.SendAsync("FeedbackReceived", messageId, feedback);
         }
     }
 }

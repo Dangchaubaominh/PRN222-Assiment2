@@ -21,6 +21,8 @@ namespace RagChatbot.DAL.Entities
 
         public string? SourcesJson { get; set; }
 
+        public FeedbackType? Feedback { get; set; }
+
         public DateTime CreatedAt { get; set; }
     }
 }

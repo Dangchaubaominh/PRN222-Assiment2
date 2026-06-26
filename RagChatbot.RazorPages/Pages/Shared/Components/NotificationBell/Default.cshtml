@@ -39,7 +39,16 @@
                     <div class="notif-item @(n.IsRead ? "" : "unread")" data-id="@n.Id">
                         <span class="notif-dot @DotClass(n.Type)"></span>
                         <div class="notif-body">
-                            <div class="notif-msg">@n.Message</div>
+                            <div class="notif-msg">
+                                @if (!string.IsNullOrEmpty(n.LinkUrl))
+                                {
+                                    <a href="@n.LinkUrl" style="text-decoration:none; color:inherit;">@n.Message</a>
+                                }
+                                else
+                                {
+                                    @n.Message
+                                }
+                            </div>
                             <div class="notif-time">@n.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
                         </div>
                         <button type="button" class="notif-del" title="Xóa" onclick="delNotif(event, @n.Id, this)">&times;</button>

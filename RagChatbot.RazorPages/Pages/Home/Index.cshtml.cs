@@ -48,9 +48,10 @@ namespace RagChatbot.RazorPages.Pages.Home
             }
 
             int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            string role = User.FindFirstValue(ClaimTypes.Role) ?? "";
             var assigned = _userSubjectService.GetAssignedSubjects(userId).ToList();
             SubjectCount = assigned.Count;
-            DocumentCount = assigned.Sum(s => _documentService.GetDocumentsBySubject(s.Id).Count());
+            DocumentCount = assigned.Sum(s => _documentService.GetDocumentsBySubject(s.Id, userId, role).Count());
             UserCount = 0;
         }
 

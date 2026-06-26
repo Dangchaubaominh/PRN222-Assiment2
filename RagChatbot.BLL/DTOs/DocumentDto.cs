@@ -9,6 +9,9 @@ namespace RagChatbot.BLL.DTOs
         public string FileName { get; set; }
         public string FilePath { get; set; }
         public string Status { get; set; }
+        public string? ProgressMessage { get; set; }
+        public int AccessLevel { get; set; }
+        public int? UploadedById { get; set; }
         public DateTime UploadedAt { get; set; }
     }
 }

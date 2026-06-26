@@ -15,26 +15,25 @@ namespace RagChatbot.RazorPages.Services
             _hub = hub;
         }
 
-        public async Task NotifyUserAsync(int userId, string message, string type = "info")
+        public async Task NotifyUserAsync(int userId, string message, string type = "info", string? linkUrl = null)
         {
-            // 1. Lưu vào DB (bền vững)
-            var dto = _store.Create(userId, message, type);
-            // 2. Đẩy real-time (nếu user đang online) kèm số chưa đọc mới
+            var dto = _store.Create(userId, message, type, linkUrl);
             int unread = _store.GetUnreadCount(userId);
             await _hub.Clients.User(userId.ToString()).SendAsync("ReceiveNotification", new
             {
                 id = dto.Id,
                 message = dto.Message,
                 type = dto.Type,
+                linkUrl = dto.LinkUrl,
                 createdAt = dto.CreatedAt,
                 unreadCount = unread
             });
         }
 
-        public async Task NotifyUsersAsync(IEnumerable<int> userIds, string message, string type = "info")
+        public async Task NotifyUsersAsync(IEnumerable<int> userIds, string message, string type = "info", string? linkUrl = null)
         {
             foreach (var userId in userIds.Distinct())
-                await NotifyUserAsync(userId, message, type);
+                await NotifyUserAsync(userId, message, type, linkUrl);
         }
 
         public Task ForceLogoutAsync(int userId, string reason = "")
