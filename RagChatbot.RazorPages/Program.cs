@@ -99,4 +99,7 @@ app.MapHub<SubjectHub>("/subjectHub");
 // Hub dashboard sống (presence + broadcast)
 app.MapHub<DashboardHub>("/dashboardHub");
 
+// Hub cập nhật danh sách tài khoản real-time
+app.MapHub<UserHub>("/userHub");
+
 app.Run();

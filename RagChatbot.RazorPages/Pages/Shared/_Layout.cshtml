@@ -209,7 +209,7 @@
                     customClass: { popup: 'swal-toast-custom' }
                 });
                 // 2. Cập nhật chuông
-                prependNotif(n.message, n.type, 'Vừa xong');
+                prependNotif(n.message, n.type, 'Vừa xong', n.id);
                 setBadge(n.unreadCount);
             });
             // Bị buộc đăng xuất (đổi quyền / xóa tài khoản) → đăng xuất ngay
@@ -228,7 +228,17 @@
         function notifDotClass(t) {
             return t === 'success' ? 'nt-success' : t === 'warning' ? 'nt-warning' : t === 'error' ? 'nt-error' : 'nt-info';
         }
-        function prependNotif(message, type, timeText) {
+        function ensureEmptyState() {
+            const list = document.getElementById('notifList');
+            if (list && list.querySelectorAll('.notif-item').length === 0 && !document.getElementById('notifEmpty')) {
+                const e = document.createElement('div');
+                e.className = 'notif-empty'; e.id = 'notifEmpty';
+                e.innerHTML = '<i class="bi bi-bell-slash"></i><div>Chưa có thông báo nào</div>';
+                list.appendChild(e);
+            }
+        }
+
+        function prependNotif(message, type, timeText, id) {
             const list = document.getElementById('notifList');
             if (!list) return;
             const empty = document.getElementById('notifEmpty');
@@ -236,8 +246,11 @@
 
             const item = document.createElement('div');
             item.className = 'notif-item unread';
+            if (id != null) item.setAttribute('data-id', id);
+
             const dot = document.createElement('span');
             dot.className = 'notif-dot ' + notifDotClass(type);
+
             const body = document.createElement('div');
             body.className = 'notif-body';
             const msg = document.createElement('div');
@@ -247,9 +260,34 @@
             time.className = 'notif-time';
             time.textContent = timeText;
             body.appendChild(msg); body.appendChild(time);
-            item.appendChild(dot); item.appendChild(body);
+
+            const del = document.createElement('button');
+            del.type = 'button'; del.className = 'notif-del'; del.title = 'Xóa';
+            del.innerHTML = '&times;';
+            del.onclick = function (e) { delNotif(e, id, del); };
+
+            item.appendChild(dot); item.appendChild(body); item.appendChild(del);
             list.prepend(item);
         }
+
+        // Xóa 1 thông báo
+        window.delNotif = function (e, id, btn) {
+            e.stopPropagation();
+            if (id != null && notifyConn) notifyConn.invoke('DeleteNotification', id).catch(function () { });
+            const item = btn.closest('.notif-item');
+            if (item) item.remove();
+            ensureEmptyState();
+        };
+
+        // Xóa tất cả thông báo
+        window.clearAllNotif = function (e) {
+            e.stopPropagation();
+            if (notifyConn) notifyConn.invoke('ClearAll').catch(function () { });
+            const list = document.getElementById('notifList');
+            if (list) list.querySelectorAll('.notif-item').forEach(function (el) { el.remove(); });
+            setBadge(0);
+            ensureEmptyState();
+        };
 
         // Mở/đóng chuông; khi mở thì đánh dấu tất cả là đã đọc
         window.toggleNotif = function (e) {

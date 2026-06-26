@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.RazorPages.Hubs;
 using RagChatbot.RazorPages.Services;
 
 namespace RagChatbot.RazorPages.Pages.User
@@ -12,11 +14,13 @@ namespace RagChatbot.RazorPages.Pages.User
     {
         private readonly IUserService _userService;
         private readonly IRealtimeNotifier _notifier;
+        private readonly IHubContext<UserHub> _userHub;
 
-        public EditModel(IUserService userService, IRealtimeNotifier notifier)
+        public EditModel(IUserService userService, IRealtimeNotifier notifier, IHubContext<UserHub> userHub)
         {
             _userService = userService;
             _notifier = notifier;
+            _userHub = userHub;
         }
 
         [BindProperty]
@@ -47,6 +51,12 @@ namespace RagChatbot.RazorPages.Pages.User
             }
 
             // Nếu đổi vai trò → lưu thông báo (xem ở chuông khi đăng nhập lại) + buộc đăng xuất
+            await _userHub.Clients.Group(UserHub.UserListGroup).SendAsync("UserListChanged", new
+            {
+                action = "updated",
+                userId = Input.Id
+            });
+
             if (oldRole != null && oldRole != Input.Role)
             {
                 await _notifier.NotifyUserAsync(

@@ -23,9 +23,25 @@ namespace RagChatbot.RazorPages.Hubs
         // Client gọi khi mở chuông: đánh dấu tất cả thông báo của user là đã đọc
         public void MarkAllRead()
         {
-            var idValue = Context.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (int.TryParse(idValue, out int userId))
+            if (TryGetUserId(out int userId))
                 _store.MarkAllRead(userId);
         }
+
+        // Xóa một thông báo của chính user
+        public void DeleteNotification(int id)
+        {
+            if (TryGetUserId(out int userId))
+                _store.Delete(id, userId);
+        }
+
+        // Xóa toàn bộ thông báo của user
+        public void ClearAll()
+        {
+            if (TryGetUserId(out int userId))
+                _store.DeleteAll(userId);
+        }
+
+        private bool TryGetUserId(out int userId)
+            => int.TryParse(Context.User?.FindFirstValue(ClaimTypes.NameIdentifier), out userId);
     }
 }

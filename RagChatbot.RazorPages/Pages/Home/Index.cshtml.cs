@@ -1,9 +1,9 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.RazorPages.Services;
-using System.Security.Claims;
 
 namespace RagChatbot.RazorPages.Pages.Home
 {
@@ -37,17 +37,25 @@ namespace RagChatbot.RazorPages.Pages.Home
 
         private void LoadStats()
         {
-            SubjectCount = User.IsInRole("Admin")
-                ? _subjectService.GetAllSubjects().Count()
-                : _userSubjectService.GetAssignedSubjects(int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!)).Count();
-            UserCount = _userService.GetAllUsers().Count();
-            DocumentCount = _documentService.CountAllDocuments();
             OnlineCount = _presence.OnlineCount;
+
+            if (User.IsInRole("Admin"))
+            {
+                SubjectCount = _subjectService.GetAllSubjects().Count();
+                DocumentCount = _documentService.CountAllDocuments();
+                UserCount = _userService.GetAllUsers().Count();
+                return;
+            }
+
+            int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var assigned = _userSubjectService.GetAssignedSubjects(userId).ToList();
+            SubjectCount = assigned.Count;
+            DocumentCount = assigned.Sum(s => _documentService.GetDocumentsBySubject(s.Id).Count());
+            UserCount = 0;
         }
 
         public void OnGet() => LoadStats();
 
-        // Trả số liệu mới (gọi qua AJAX khi nhận StatsChanged)
         public IActionResult OnGetStats()
         {
             LoadStats();

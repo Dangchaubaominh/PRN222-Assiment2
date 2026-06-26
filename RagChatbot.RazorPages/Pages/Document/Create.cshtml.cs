@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.RazorPages.Hubs;
 using RagChatbot.RazorPages.BackgroundTasks;
 using RagChatbot.RazorPages.Services;
 
@@ -16,19 +18,22 @@ namespace RagChatbot.RazorPages.Pages.Document
         private readonly IWebHostEnvironment _env;
         private readonly IDocumentProcessingQueue _processingQueue;
         private readonly IDashboardNotifier _dashboard;
+        private readonly IHubContext<DocumentHub> _documentHub;
 
         public CreateModel(
             IDocumentService documentService,
             IUserSubjectService userSubjectService,
             IWebHostEnvironment env,
             IDocumentProcessingQueue processingQueue,
-            IDashboardNotifier dashboard)
+            IDashboardNotifier dashboard,
+            IHubContext<DocumentHub> documentHub)
         {
             _documentService = documentService;
             _userSubjectService = userSubjectService;
             _env = env;
             _processingQueue = processingQueue;
             _dashboard = dashboard;
+            _documentHub = documentHub;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -84,6 +89,12 @@ namespace RagChatbot.RazorPages.Pages.Document
                             // Đẩy vào hàng đợi nền — worker sẽ xử lý RAG và báo trạng thái
                             // real-time qua SignalR, trang không phải chờ.
                             _processingQueue.Enqueue(uploadedDoc.Id);
+                            await _documentHub.Clients.Group(DocumentHub.GroupName(SubjectId)).SendAsync("DocumentListChanged", new
+                            {
+                                action = "created",
+                                documentId = uploadedDoc.Id,
+                                subjectId = SubjectId
+                            });
                         }
                         await _dashboard.StatsChangedAsync();
                         TempData["SuccessMessage"] = "Upload thành công! AI đang xử lý tài liệu ở chế độ nền — trạng thái sẽ tự cập nhật.";

@@ -17,6 +17,13 @@
     </Content>
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- File ngôn ngữ Tesseract OCR — copy ra bin để DocumentProcessingService dùng -->
+    <Content Include="tessdata\**\*.traineddata">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
     <Nullable>enable</Nullable>

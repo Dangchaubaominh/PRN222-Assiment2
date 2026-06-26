@@ -9,5 +9,7 @@ namespace RagChatbot.DAL.Repositories.Interfaces
         IEnumerable<Notification> GetByUser(int userId, int take);
         int CountUnread(int userId);
         void MarkAllRead(int userId);
+        void Delete(int id, int userId);
+        void DeleteAll(int userId);
     }
 }

@@ -17,17 +17,20 @@ namespace RagChatbot.RazorPages.Pages.Member
         private readonly ISubjectService _subjectService;
         private readonly IRealtimeNotifier _notificationService;
         private readonly IHubContext<SubjectHub> _subjectHub;
+        private readonly IDashboardNotifier _dashboard;
 
         public AddModel(
             IUserSubjectService userSubjectService,
             ISubjectService subjectService,
             IRealtimeNotifier notificationService,
-            IHubContext<SubjectHub> subjectHub)
+            IHubContext<SubjectHub> subjectHub,
+            IDashboardNotifier dashboard)
         {
             _userSubjectService = userSubjectService;
             _subjectService = subjectService;
             _notificationService = notificationService;
             _subjectHub = subjectHub;
+            _dashboard = dashboard;
         }
 
         [BindProperty(SupportsGet = true)]
@@ -89,6 +92,14 @@ namespace RagChatbot.RazorPages.Pages.Member
                 // Cập nhật danh sách thành viên cho mọi người đang xem môn học này
                 await _subjectHub.Clients.Group(SubjectHub.MembersGroup(SubjectId))
                                  .SendAsync("MembersChanged");
+
+                // Cập nhật danh sách môn học cho các user vừa được thêm nếu họ đang mở trang Môn học.
+                // Client tự reload partial theo phân quyền nên chỉ thấy môn được phép xem.
+                await _subjectHub.Clients.Group(SubjectHub.SubjectListGroup)
+                                 .SendAsync("SubjectListChanged");
+
+                // Cập nhật số liệu dashboard (số môn/tài liệu của sinh viên vừa được thêm)
+                await _dashboard.StatsChangedAsync();
             }
 
             if (limitBlocked > 0 && added == 0)
