@@ -22,15 +22,29 @@ namespace RagChatbot.DAL.Repositories.Implements
             _context.SaveChanges();
         }
 
-        public IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int take)
+        public IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int sessionId, int take)
+            => _context.ChatMessages
+                       .Where(m => m.UserId == userId &&
+                                   m.SubjectId == subjectId &&
+                                   m.SessionId == sessionId)
+                       .OrderByDescending(m => m.Id)
+                       .Take(take)
+                       .OrderBy(m => m.Id)
+                       .ToList();
+
+        public void DeleteHistory(int userId, Guid subjectId, int sessionId)
         {
-            // Lấy N tin gần nhất rồi đảo lại theo thứ tự thời gian tăng dần
-            return _context.ChatMessages
-                           .Where(m => m.UserId == userId && m.SubjectId == subjectId)
-                           .OrderByDescending(m => m.Id)
-                           .Take(take)
-                           .OrderBy(m => m.Id)
-                           .ToList();
+            var messages = _context.ChatMessages
+                                   .Where(m => m.UserId == userId &&
+                                               m.SubjectId == subjectId &&
+                                               m.SessionId == sessionId)
+                                   .ToList();
+
+            if (messages.Count == 0)
+                return;
+
+            _context.ChatMessages.RemoveRange(messages);
+            _context.SaveChanges();
         }
     }
 }

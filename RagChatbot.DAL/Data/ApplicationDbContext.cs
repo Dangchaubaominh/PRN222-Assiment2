@@ -17,7 +17,13 @@ namespace RagChatbot.DAL.Data
         public DbSet<User> Users { get; set; }
         public DbSet<UserSubject> UserSubjects { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<ChatSession> ChatSessions { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<DocumentSummary> DocumentSummaries { get; set; }
+        public DbSet<Quiz> Quizzes { get; set; }
+        public DbSet<QuizQuestion> QuizQuestions { get; set; }
+        public DbSet<QuizAttempt> QuizAttempts { get; set; }
+        public DbSet<LearningActivity> LearningActivities { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -47,9 +53,47 @@ namespace RagChatbot.DAL.Data
                 .HasForeignKey(n => n.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            // Lịch sử chat truy theo (UserId, SubjectId)
+            // Phiên chat truy theo từng người dùng và từng môn học
+            modelBuilder.Entity<ChatSession>()
+                .HasIndex(s => new { s.UserId, s.SubjectId });
+
+            // Lịch sử chat truy theo từng phiên
             modelBuilder.Entity<ChatMessage>()
-                .HasIndex(m => new { m.UserId, m.SubjectId });
+                .HasIndex(m => new { m.UserId, m.SubjectId, m.SessionId });
+
+            modelBuilder.Entity<ChatMessage>()
+                .HasOne(m => m.Session)
+                .WithMany(s => s.Messages)
+                .HasForeignKey(m => m.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<DocumentSummary>()
+                .HasIndex(s => s.DocumentId)
+                .IsUnique();
+
+            modelBuilder.Entity<DocumentSummary>()
+                .HasOne(s => s.Document)
+                .WithMany()
+                .HasForeignKey(s => s.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Quiz>()
+                .HasIndex(q => new { q.SubjectId, q.DocumentId });
+
+            modelBuilder.Entity<QuizQuestion>()
+                .HasOne(q => q.Quiz)
+                .WithMany(q => q.Questions)
+                .HasForeignKey(q => q.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<QuizAttempt>()
+                .HasOne(a => a.Quiz)
+                .WithMany(q => q.Attempts)
+                .HasForeignKey(a => a.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<LearningActivity>()
+                .HasIndex(a => new { a.UserId, a.SubjectId, a.ActivityType });
 
             modelBuilder.Entity<User>().HasData(
                 new User { Id = 1,  Username = "admin",       Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Admin",    FullName = "Nguyễn Quản Trị" },

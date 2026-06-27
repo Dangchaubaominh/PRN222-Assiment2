@@ -1,11 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using RagChatbot.DAL.Data;
-using RagChatbot.DAL.Repositories.Interfaces;
-using RagChatbot.DAL.Repositories.Implements;
-using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.BLL.Services.Implements;
+using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.DAL.Data;
+using RagChatbot.DAL.Repositories.Implements;
+using RagChatbot.DAL.Repositories.Interfaces;
 
 namespace RagChatbot.BLL.Extensions
 {
@@ -25,6 +25,7 @@ namespace RagChatbot.BLL.Extensions
             services.AddScoped<IDocumentChunkRepository, DocumentChunkRepository>();
             services.AddScoped<IUserSubjectRepository, UserSubjectRepository>();
             services.AddScoped<INotificationRepository, NotificationRepository>();
+            services.AddScoped<IChatSessionRepository, ChatSessionRepository>();
             services.AddScoped<IChatMessageRepository, ChatMessageRepository>();
 
             // 3. Đăng ký Services (BLL)
@@ -37,7 +38,11 @@ namespace RagChatbot.BLL.Extensions
             services.AddScoped<IChatbotService, ChatbotService>();
             services.AddScoped<IDocumentProcessingService, DocumentProcessingService>();
             services.AddScoped<INotificationService, NotificationService>();
+            services.AddScoped<IChatSessionService, ChatSessionService>();
             services.AddScoped<IChatMessageService, ChatMessageService>();
+            services.AddScoped<IDocumentSummaryService, DocumentSummaryService>();
+            services.AddScoped<IQuizService, QuizService>();
+            services.AddScoped<ILearningProgressService, LearningProgressService>();
 
             return services;
         }

@@ -7,7 +7,7 @@ namespace RagChatbot.DAL.Repositories.Interfaces
     public interface IChatMessageRepository
     {
         void Add(ChatMessage message);
-        // Lịch sử hội thoại của 1 user trong 1 môn học, cũ → mới
-        IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int take);
+        IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int sessionId, int take);
+        void DeleteHistory(int userId, Guid subjectId, int sessionId);
     }
 }
