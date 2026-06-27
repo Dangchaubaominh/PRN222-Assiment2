@@ -55,6 +55,12 @@
                     </select>
                 </div>
 
+                <div style="margin-top:16px;">
+                    <label style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:6px;display:block">Kích thước Chunk (Số từ tối đa mỗi đoạn cắt)</label>
+                    <input type="number" name="MaxWordsPerChunk" class="form-control" value="400" min="100" max="2000" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-2);color:var(--text-1)" />
+                    <small style="color:var(--text-3);font-size:12px;margin-top:4px;display:block">Nên để 400-600 từ để AI có đủ ngữ cảnh, và không bị lỗi giới hạn độ dài.</small>
+                </div>
+
                 <div style="margin-top:24px;display:flex;gap:10px">
                     <button type="submit" class="btn-app btn-primary-app" id="submitBtn">
                         <i class="bi bi-upload"></i> Upload & Xử lý AI

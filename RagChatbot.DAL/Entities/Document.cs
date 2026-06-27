@@ -36,6 +36,8 @@ namespace RagChatbot.DAL.Entities
 
         public DocumentAccessLevel AccessLevel { get; set; } = DocumentAccessLevel.Public;
 
+        public int MaxWordsPerChunk { get; set; } = 400;
+
         public int? UploadedById { get; set; }
 
         public DateTime UploadedAt { get; set; } = DateTime.UtcNow;

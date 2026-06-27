@@ -43,7 +43,7 @@ namespace RagChatbot.BLL.Services.Implements
             return entity == null ? null : ToDto(entity);
         }
 
-        public async Task<DocumentUploadResult> UploadDocumentAsync(Guid subjectId, string fileName, Stream fileStream, string uploadPath, int uploaderId, int accessLevel)
+        public async Task<DocumentUploadResult> UploadDocumentAsync(Guid subjectId, string fileName, Stream fileStream, string uploadPath, int uploaderId, int accessLevel, int maxWordsPerChunk = 400)
         {
             if (_documentRepository.ExistsByFileName(subjectId, fileName))
                 return DocumentUploadResult.Duplicate;
@@ -70,6 +70,7 @@ namespace RagChatbot.BLL.Services.Implements
                     Status = DocumentStatus.Pending,
                     UploadedById = uploaderId,
                     AccessLevel = (DocumentAccessLevel)accessLevel,
+                    MaxWordsPerChunk = maxWordsPerChunk,
                     UploadedAt = DateTime.UtcNow
                 };
 

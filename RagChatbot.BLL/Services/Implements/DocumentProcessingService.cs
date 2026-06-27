@@ -88,7 +88,7 @@ namespace RagChatbot.BLL.Services.Implements
                 var chunks = textSegments
                     .Where(segment => !string.IsNullOrWhiteSpace(segment.Text))
                     .SelectMany(segment => SemanticChunker.SplitText(segment.Text,
-                                                                     maxWordsPerChunk: 400,
+                                                                     maxWordsPerChunk: doc.MaxWordsPerChunk,
                                                                      overlapSentences:  2)
                                                           .Select(text => new TextSegment(text, segment.PageNumber)))
                     .ToList();

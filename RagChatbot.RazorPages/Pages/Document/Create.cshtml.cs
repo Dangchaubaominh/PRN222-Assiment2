@@ -45,6 +45,9 @@ namespace RagChatbot.RazorPages.Pages.Document
         [BindProperty]
         public int AccessLevel { get; set; }
 
+        [BindProperty]
+        public int MaxWordsPerChunk { get; set; } = 400;
+
         private bool CanAccess(Guid subjectId)
         {
             if (User.IsInRole("Admin")) return true;
@@ -73,7 +76,7 @@ namespace RagChatbot.RazorPages.Pages.Document
             using (var stream = UploadFile.OpenReadStream())
             {
                 int userId = int.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-                var result = await _documentService.UploadDocumentAsync(SubjectId, UploadFile.FileName, stream, uploadsFolder, userId, AccessLevel);
+                var result = await _documentService.UploadDocumentAsync(SubjectId, UploadFile.FileName, stream, uploadsFolder, userId, AccessLevel, MaxWordsPerChunk);
 
                 switch (result)
                 {

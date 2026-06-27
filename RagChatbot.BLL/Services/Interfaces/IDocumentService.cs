@@ -17,7 +17,7 @@ namespace RagChatbot.BLL.Services.Interfaces
     {
         IEnumerable<DocumentDto> GetDocumentsBySubject(Guid subjectId, int currentUserId, string currentUserRole);
         DocumentDto GetDocumentById(Guid id);
-        Task<DocumentUploadResult> UploadDocumentAsync(Guid subjectId, string fileName, Stream fileStream, string uploadPath, int uploaderId, int accessLevel);
+        Task<DocumentUploadResult> UploadDocumentAsync(Guid subjectId, string fileName, Stream fileStream, string uploadPath, int uploaderId, int accessLevel, int maxWordsPerChunk = 400);
         bool DeleteDocument(Guid id, string rootPath);
 
         // Tổng số tài liệu trong toàn hệ thống (dùng cho dashboard)
