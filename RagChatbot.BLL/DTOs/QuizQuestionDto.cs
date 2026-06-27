@@ -1,6 +1,6 @@
 namespace RagChatbot.BLL.DTOs
 {
-    public class QuizQuestionDto
+    public partial class QuizQuestionDto
     {
         public int Id { get; set; }
         public int QuizId { get; set; }

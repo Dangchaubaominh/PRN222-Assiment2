@@ -13,7 +13,7 @@
                 }
                 else
                 {
-                    <text>Bạn chưa được thêm vào môn học nào. Vui lòng liên hệ Giảng viên.</text>
+                    <text>Bạn chưa được thêm vào môn học nào. Vui lòng liên hệ giảng viên.</text>
                 }
             </div>
         </div>
@@ -32,22 +32,21 @@ else
                     </div>
                     <div class="subject-name">@item.Name</div>
                     <div class="subject-actions">
-                        <a asp-page="/Document/Index" asp-route-subjectId="@item.Id"
-                           class="btn-app btn-sm-app btn-info-app">
+                        <a asp-page="/Document/Index" asp-route-subjectId="@item.Id" class="btn-app btn-sm-app btn-info-app">
                             <i class="bi bi-folder2-open"></i> Tài liệu
                         </a>
-                        <a href="@Url.Page("/Chat/Index", new { subjectId = item.Id })"
-                           class="btn-app btn-sm-app btn-success-app">
+                        <a href="@Url.Page("/Chat/Index", new { subjectId = item.Id })" class="btn-app btn-sm-app btn-success-app">
                             <i class="bi bi-chat-dots"></i> Chat AI
+                        </a>
+                        <a asp-page="/Quiz/Index" asp-route-subjectId="@item.Id" class="btn-app btn-sm-app btn-primary-app">
+                            <i class="bi bi-ui-checks"></i> Quiz
                         </a>
                         @if (User.IsInRole("Admin") || User.IsInRole("Lecturer"))
                         {
-                            <a asp-page="/Member/Index" asp-route-subjectId="@item.Id"
-                               class="btn-app btn-sm-app btn-ghost">
+                            <a asp-page="/Member/Index" asp-route-subjectId="@item.Id" class="btn-app btn-sm-app btn-ghost">
                                 <i class="bi bi-people"></i> Thành viên
                             </a>
-                            <a asp-page="Edit" asp-route-id="@item.Id"
-                               class="btn-app btn-sm-app btn-warning-app">
+                            <a asp-page="Edit" asp-route-id="@item.Id" class="btn-app btn-sm-app btn-warning-app">
                                 <i class="bi bi-pencil"></i>
                             </a>
                         }
@@ -55,7 +54,7 @@ else
                         {
                             <form asp-page-handler="Delete" asp-route-id="@item.Id" method="post" class="d-inline">
                                 <button type="button" class="btn-app btn-sm-app btn-danger-app"
-                                        onclick="swalDelete(this, 'Xoá môn học?', 'Môn học &quot;@item.Name&quot; và toàn bộ tài liệu sẽ bị xoá vĩnh viễn.')">
+                                        onclick="swalDelete(this, 'Xóa môn học?', 'Môn học &quot;@item.Name&quot; và toàn bộ tài liệu sẽ bị xóa vĩnh viễn.')">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>

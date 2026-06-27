@@ -10,16 +10,16 @@ namespace RagChatbot.DAL.Entities
         public int Id { get; set; }
 
         public Guid DocumentId { get; set; }
-        public Document Document { get; set; }
+        public Document Document { get; set; } = default!;
 
         [Required]
         [MaxLength(200)]
-        public string Title { get; set; }
+        public string Title { get; set; } = "";
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         public int CreatedById { get; set; }
-        public User CreatedBy { get; set; }
+        public User CreatedBy { get; set; } = default!;
 
         public ICollection<QuizQuestion> Questions { get; set; } = new List<QuizQuestion>();
         public ICollection<QuizResult> Results { get; set; } = new List<QuizResult>();

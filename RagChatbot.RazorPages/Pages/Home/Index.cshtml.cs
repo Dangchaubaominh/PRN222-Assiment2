@@ -14,6 +14,7 @@ namespace RagChatbot.RazorPages.Pages.Home
         private readonly IUserSubjectService _userSubjectService;
         private readonly IUserService _userService;
         private readonly IDocumentService _documentService;
+        private readonly ILearningProgressService _progressService;
         private readonly IPresenceTracker _presence;
 
         public IndexModel(
@@ -21,12 +22,14 @@ namespace RagChatbot.RazorPages.Pages.Home
             IUserSubjectService userSubjectService,
             IUserService userService,
             IDocumentService documentService,
+            ILearningProgressService progressService,
             IPresenceTracker presence)
         {
             _subjectService = subjectService;
             _userSubjectService = userSubjectService;
             _userService = userService;
             _documentService = documentService;
+            _progressService = progressService;
             _presence = presence;
         }
 
@@ -34,6 +37,7 @@ namespace RagChatbot.RazorPages.Pages.Home
         public int UserCount { get; set; }
         public int DocumentCount { get; set; }
         public int OnlineCount { get; set; }
+        public RagChatbot.BLL.DTOs.LearningDashboardDto? LearningDashboard { get; set; }
 
         private void LoadStats()
         {
@@ -53,6 +57,7 @@ namespace RagChatbot.RazorPages.Pages.Home
             SubjectCount = assigned.Count;
             DocumentCount = assigned.Sum(s => _documentService.GetDocumentsBySubject(s.Id, userId, role).Count());
             UserCount = 0;
+            LearningDashboard = _progressService.GetDashboard(userId);
         }
 
         public void OnGet() => LoadStats();

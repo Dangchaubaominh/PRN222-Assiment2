@@ -8,26 +8,27 @@ namespace RagChatbot.DAL.Entities
         public int Id { get; set; }
 
         public int QuizId { get; set; }
-        public Quiz Quiz { get; set; }
+        public Quiz Quiz { get; set; } = default!;
 
         [Required]
-        public string Content { get; set; }
+        public string Content { get; set; } = "";
 
         [Required]
-        public string OptionA { get; set; }
-        [Required]
-        public string OptionB { get; set; }
-        [Required]
-        public string OptionC { get; set; }
-        [Required]
-        public string OptionD { get; set; }
+        public string OptionA { get; set; } = "";
 
-        // Lưu đáp án đúng dưới dạng A, B, C, D
+        [Required]
+        public string OptionB { get; set; } = "";
+
+        [Required]
+        public string OptionC { get; set; } = "";
+
+        [Required]
+        public string OptionD { get; set; } = "";
+
         [Required]
         [MaxLength(1)]
-        public string CorrectOption { get; set; }
+        public string CorrectOption { get; set; } = "A";
 
-        // Lời giải thích từ AI
-        public string Explanation { get; set; }
+        public string Explanation { get; set; } = "";
     }
 }

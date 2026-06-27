@@ -9,7 +9,7 @@ namespace RagChatbot.DAL.Repositories.Interfaces
         void Add(ChatMessage message);
         ChatMessage? GetById(int id);
         void Update(ChatMessage message);
-        // Lịch sử hội thoại của 1 user trong 1 môn học, cũ → mới
-        IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int take);
+        IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int sessionId, int take);
+        void DeleteHistory(int userId, Guid subjectId, int sessionId);
     }
 }

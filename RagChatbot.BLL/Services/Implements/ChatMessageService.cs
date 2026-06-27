@@ -18,42 +18,48 @@ namespace RagChatbot.BLL.Services.Implements
             _repository = repository;
         }
 
-        public int Save(int userId, Guid subjectId, string sender, string content, IReadOnlyList<SourceCitationDto>? sources = null)
+        public int Save(int userId, Guid subjectId, int sessionId, string sender, string content, IReadOnlyList<SourceCitationDto>? sources = null)
         {
             if (string.IsNullOrWhiteSpace(content)) return 0;
+
             var message = new ChatMessage
             {
-                UserId    = userId,
+                UserId = userId,
                 SubjectId = subjectId,
-                Sender    = sender,
-                Content   = content,
+                SessionId = sessionId,
+                Sender = sender,
+                Content = content,
                 SourcesJson = sources is { Count: > 0 } ? JsonSerializer.Serialize(sources) : null,
                 CreatedAt = DateTime.UtcNow
             };
+
             _repository.Add(message);
             return message.Id;
         }
 
         public void UpdateFeedback(int messageId, int userId, FeedbackType? feedback)
         {
-            var msg = _repository.GetById(messageId);
-            if (msg != null && msg.UserId == userId)
-            {
-                msg.Feedback = feedback;
-                _repository.Update(msg);
-            }
+            var message = _repository.GetById(messageId);
+            if (message == null || message.UserId != userId)
+                return;
+
+            message.Feedback = feedback;
+            _repository.Update(message);
         }
 
-        public IEnumerable<ChatMessageDto> GetHistory(int userId, Guid subjectId, int take = 50)
-            => _repository.GetHistory(userId, subjectId, take).Select(m => new ChatMessageDto
+        public IEnumerable<ChatMessageDto> GetHistory(int userId, Guid subjectId, int sessionId, int take = 50)
+            => _repository.GetHistory(userId, subjectId, sessionId, take).Select(m => new ChatMessageDto
             {
-                Id        = m.Id,
-                Sender    = m.Sender,
-                Content   = m.Content,
-                Sources   = DeserializeSources(m.SourcesJson),
-                Feedback  = m.Feedback,
+                Id = m.Id,
+                Sender = m.Sender,
+                Content = m.Content,
+                Sources = DeserializeSources(m.SourcesJson),
+                Feedback = m.Feedback,
                 CreatedAt = m.CreatedAt
             });
+
+        public void ClearHistory(int userId, Guid subjectId, int sessionId)
+            => _repository.DeleteHistory(userId, subjectId, sessionId);
 
         private static IReadOnlyList<SourceCitationDto> DeserializeSources(string? sourcesJson)
         {
@@ -62,11 +68,7 @@ namespace RagChatbot.BLL.Services.Implements
 
             try
             {
-                var sources = JsonSerializer.Deserialize<List<SourceCitationDto>>(sourcesJson);
-                if (sources == null)
-                    return Array.Empty<SourceCitationDto>();
-
-                return sources;
+                return JsonSerializer.Deserialize<List<SourceCitationDto>>(sourcesJson) ?? (IReadOnlyList<SourceCitationDto>)Array.Empty<SourceCitationDto>();
             }
             catch (JsonException)
             {

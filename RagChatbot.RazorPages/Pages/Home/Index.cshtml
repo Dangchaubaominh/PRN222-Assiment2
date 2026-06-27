@@ -4,12 +4,12 @@
     ViewData["Title"] = "Tổng quan";
     var fullName = User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value
                 ?? User.Identity?.Name ?? "";
-    var role = User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+    var progress = Model.LearningDashboard;
 }
 
 <div class="welcome-banner fade-in-up">
-    <h1 class="welcome-title">Xin chào, @fullName! 👋</h1>
-    <p class="welcome-sub">Chào mừng bạn quay lại EduChatbot — nền tảng học tập thông minh được hỗ trợ bởi AI.</p>
+    <h1 class="welcome-title">Xin chào, @fullName!</h1>
+    <p class="welcome-sub">Chào mừng bạn quay lại EduChatbot, nền tảng học tập thông minh được hỗ trợ bởi AI.</p>
 </div>
 
 <div class="row g-4 mb-4 fade-in-up">
@@ -56,6 +56,50 @@
     }
 </div>
 
+@if (!User.IsInRole("Admin") && progress != null)
+{
+    <div class="card mb-4 fade-in-up">
+        <div class="card-header-custom">
+            <h5><i class="bi bi-graph-up-arrow text-primary me-2"></i>Tiến độ học tập</h5>
+        </div>
+        <div class="learning-grid">
+            <div class="learning-stat"><span>@progress.AskedQuestions</span><small>Câu đã hỏi AI</small></div>
+            <div class="learning-stat"><span>@progress.ViewedDocuments</span><small>Tài liệu đã xem</small></div>
+            <div class="learning-stat"><span>@progress.QuizAttempts</span><small>Lượt làm quiz</small></div>
+            <div class="learning-stat"><span>@progress.AverageQuizScore.ToString("0.#")%</span><small>Điểm quiz trung bình</small></div>
+        </div>
+
+        @if (progress.Subjects.Any())
+        {
+            <div style="padding:0 24px 20px">
+                <table class="custom-table">
+                    <thead>
+                        <tr>
+                            <th>Môn học</th>
+                            <th style="text-align:center">Câu hỏi</th>
+                            <th style="text-align:center">Tài liệu đã xem</th>
+                            <th style="text-align:center">Quiz</th>
+                            <th style="text-align:center">Điểm TB</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in progress.Subjects)
+                        {
+                            <tr>
+                                <td><strong>@item.SubjectCode</strong> — @item.SubjectName</td>
+                                <td style="text-align:center">@item.AskedQuestions</td>
+                                <td style="text-align:center">@item.ViewedDocuments</td>
+                                <td style="text-align:center">@item.QuizAttempts</td>
+                                <td style="text-align:center">@item.AverageQuizScore.ToString("0.#")%</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+}
+
 @if (User.IsInRole("Admin"))
 {
     <div class="card mb-4 fade-in-up">
@@ -78,14 +122,14 @@
             <div class="card-header-custom">
                 <h5><i class="bi bi-lightning-charge text-warning me-2"></i>Bắt đầu nhanh</h5>
             </div>
-            <div style="padding: 20px 24px; display:flex; flex-direction:column; gap:10px;">
+            <div style="padding:20px 24px;display:flex;flex-direction:column;gap:10px">
                 <a asp-page="/Subject/Index" class="btn-app btn-primary-app w-100" style="justify-content:center">
-                    <i class="bi bi-book"></i> Vào danh sách Môn học
+                    <i class="bi bi-book"></i> Vào danh sách môn học
                 </a>
                 @if (User.IsInRole("Admin"))
                 {
                     <a asp-page="/User/Index" class="btn-app btn-ghost w-100" style="justify-content:center">
-                        <i class="bi bi-people"></i> Quản lý Tài khoản
+                        <i class="bi bi-people"></i> Quản lý tài khoản
                     </a>
                 }
             </div>
@@ -97,40 +141,30 @@
             <div class="card-header-custom">
                 <h5><i class="bi bi-info-circle text-primary me-2"></i>Về hệ thống</h5>
             </div>
-            <div style="padding: 20px 24px;">
-                <div style="display:flex;flex-direction:column;gap:12px;">
-                    <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;">
-                        <span style="width:28px;height:28px;background:#EEF2FF;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6366F1;font-size:14px;flex-shrink:0"><i class="bi bi-cpu"></i></span>
-                        <span>Sử dụng <strong>Gemini AI</strong> với công nghệ RAG</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;">
-                        <span style="width:28px;height:28px;background:#D1FAE5;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#10B981;font-size:14px;flex-shrink:0"><i class="bi bi-shield-check"></i></span>
-                        <span>Phân quyền <strong>3 cấp</strong>: Admin, Giảng viên, Sinh viên</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:10px;font-size:13.5px;">
-                        <span style="width:28px;height:28px;background:#CFFAFE;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#06B6D4;font-size:14px;flex-shrink:0"><i class="bi bi-database"></i></span>
-                        <span>Lưu trữ vector trên <strong>PostgreSQL + pgvector</strong></span>
-                    </div>
-                </div>
+            <div style="padding:20px 24px;display:flex;flex-direction:column;gap:12px">
+                <div class="system-line"><i class="bi bi-cpu"></i><span>Sử dụng <strong>Gemini AI</strong> với công nghệ RAG</span></div>
+                <div class="system-line"><i class="bi bi-shield-check"></i><span>Phân quyền <strong>3 cấp</strong>: Admin, giảng viên, sinh viên</span></div>
+                <div class="system-line"><i class="bi bi-database"></i><span>Lưu trữ vector trên <strong>PostgreSQL + pgvector</strong></span></div>
             </div>
         </div>
     </div>
 </div>
 
 @section Scripts {
-@* signalR client đã được nạp sẵn trong _Layout *@
 <style>
-    .online-dot { display:inline-block;width:9px;height:9px;border-radius:50%;background:#10B981;
-                  box-shadow:0 0 0 3px rgba(16,185,129,.2);vertical-align:middle;margin-left:2px;
-                  animation:pulseDot 1.6s infinite; }
-    @@keyframes pulseDot { 0%,100%{opacity:1} 50%{opacity:.35} }
-    .stat-bump { transition: color .2s; color: var(--primary) !important; }
+.online-dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:#10B981;box-shadow:0 0 0 3px rgba(16,185,129,.2);vertical-align:middle;margin-left:2px;animation:pulseDot 1.6s infinite}
+@@keyframes pulseDot{0%,100%{opacity:1}50%{opacity:.35}}
+.stat-bump{transition:color .2s;color:var(--primary)!important}
+.learning-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;padding:20px 24px}
+.learning-stat{border:1px solid var(--border);border-radius:8px;padding:16px;background:var(--surface-2)}
+.learning-stat span{display:block;font-size:26px;font-weight:900;color:var(--text-1);line-height:1}
+.learning-stat small{display:block;margin-top:7px;color:var(--text-3);font-weight:600}
+.system-line{display:flex;align-items:center;gap:10px;font-size:13.5px}
+.system-line i{width:28px;height:28px;background:#EEF2FF;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#6366F1;font-size:14px;flex-shrink:0}
 </style>
 <script>
     const statsUrl = '@Url.Page("/Home/Index", "Stats")';
     const isAdmin = @(User.IsInRole("Admin") ? "true" : "false");
-
-    // Dùng lại kết nối dashboard đã tạo trong _Layout
     const dashConn = window.dashConn;
 
     function setStat(id, value) {
@@ -141,10 +175,7 @@
         setTimeout(() => el.classList.remove('stat-bump'), 600);
     }
 
-    // Số người online thay đổi
     dashConn.on('OnlineChanged', count => setStat('statOnline', count));
-
-    // Số liệu (môn/tài liệu/tài khoản) thay đổi → nạp lại
     dashConn.on('StatsChanged', async () => {
         try {
             const res = await fetch(statsUrl);
@@ -154,12 +185,9 @@
             setStat('statDocuments', s.documents);
             setStat('statOnline', s.online);
             if (isAdmin) setStat('statUsers', s.users);
-        } catch { /* bỏ qua */ }
+        } catch { }
     });
 
-    // (Toast Announcement do _Layout xử lý chung cho mọi trang)
-
-    // Admin gửi broadcast
     window.sendBroadcast = function () {
         const input = document.getElementById('broadcastInput');
         const msg = input.value.trim();

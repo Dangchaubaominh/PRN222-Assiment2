@@ -73,9 +73,12 @@ namespace RagChatbot.RazorPages.BackgroundTasks
             // Khi học xong: thông báo tới mọi thành viên của môn học về tài liệu mới
             if (ok)
             {
+                var summaryService = scope.ServiceProvider.GetRequiredService<IDocumentSummaryService>();
                 var subjectService = scope.ServiceProvider.GetRequiredService<ISubjectService>();
                 var userSubjectService = scope.ServiceProvider.GetRequiredService<IUserSubjectService>();
                 var notifier = scope.ServiceProvider.GetRequiredService<IRealtimeNotifier>();
+
+                await summaryService.GenerateAsync(documentId);
 
                 var subject = subjectService.GetSubjectById(doc.SubjectId);
                 string label = subject == null ? "môn học" : $"{subject.Code} — {subject.Name}";
