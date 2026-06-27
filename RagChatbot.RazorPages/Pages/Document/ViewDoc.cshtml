@@ -30,6 +30,9 @@
         </div>
     </div>
     <div style="display:flex;gap:8px">
+        <a asp-page="/Quiz/Generate" asp-route-documentId="@doc.Id" class="btn-app btn-sm-app" style="background:#8b5cf6;color:#fff;border-color:#8b5cf6">
+            <i class="bi bi-magic"></i> Tạo Quiz AI
+        </a>
         <a asp-page="Index" asp-route-subjectId="@doc.SubjectId" class="btn-app btn-ghost btn-sm-app">
             <i class="bi bi-arrow-left"></i> Danh sách
         </a>

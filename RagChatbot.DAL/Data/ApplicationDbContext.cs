@@ -1,4 +1,4 @@
-﻿using RagChatbot.DAL.Entities;
+using RagChatbot.DAL.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace RagChatbot.DAL.Data
@@ -18,6 +18,9 @@ namespace RagChatbot.DAL.Data
         public DbSet<UserSubject> UserSubjects { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<Quiz> Quizzes { get; set; }
+        public DbSet<QuizQuestion> QuizQuestions { get; set; }
+        public DbSet<QuizResult> QuizResults { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -50,6 +53,36 @@ namespace RagChatbot.DAL.Data
             // Lịch sử chat truy theo (UserId, SubjectId)
             modelBuilder.Entity<ChatMessage>()
                 .HasIndex(m => new { m.UserId, m.SubjectId });
+
+            modelBuilder.Entity<Quiz>()
+                .HasOne(q => q.Document)
+                .WithMany()
+                .HasForeignKey(q => q.DocumentId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Quiz>()
+                .HasOne(q => q.CreatedBy)
+                .WithMany()
+                .HasForeignKey(q => q.CreatedById)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            modelBuilder.Entity<QuizQuestion>()
+                .HasOne(q => q.Quiz)
+                .WithMany(q => q.Questions)
+                .HasForeignKey(q => q.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<QuizResult>()
+                .HasOne(qr => qr.Quiz)
+                .WithMany(q => q.Results)
+                .HasForeignKey(qr => qr.QuizId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<QuizResult>()
+                .HasOne(qr => qr.User)
+                .WithMany()
+                .HasForeignKey(qr => qr.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<User>().HasData(
                 new User { Id = 1,  Username = "admin",       Password = "$2a$11$36oZGMR0pUm/uccAWPAXquewdW59sC4q5ZyPieDIq0OezNeL/dIVu", Role = "Admin",    FullName = "Nguyễn Quản Trị" },

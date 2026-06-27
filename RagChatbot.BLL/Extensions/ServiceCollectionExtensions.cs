@@ -29,6 +29,7 @@ namespace RagChatbot.BLL.Extensions
 
             // 3. Đăng ký Services (BLL)
             services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IQuizService, QuizService>();
             services.AddScoped<IUserService, UserService>();
             services.AddScoped<ISubjectService, SubjectService>();
             services.AddScoped<IDocumentService, DocumentService>();
