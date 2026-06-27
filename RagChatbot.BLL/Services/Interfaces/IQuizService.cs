@@ -7,11 +7,13 @@ namespace RagChatbot.BLL.Services.Interfaces
 {
     public interface IQuizService
     {
-        IEnumerable<QuizDto> GetBySubject(Guid subjectId);
-        QuizDto? GetById(int quizId);
-        Task<QuizDto?> GenerateAsync(Guid subjectId, Guid? documentId, int questionCount = 5);
-        QuizAttemptDto? Submit(int userId, int quizId, IDictionary<int, string> answers);
-        QuizAttemptDto? GetLatestAttempt(int userId, int quizId);
-        int CountAttempts(int userId, int quizId);
+        Task<QuizDto?> GenerateQuizAsync(Guid documentId, int numberOfQuestions, int userId);
+        Task<QuizDto?> GetQuizByIdAsync(int quizId);
+        Task<List<QuizDto>> GetQuizzesByDocumentAsync(Guid documentId);
+        Task<List<QuizDto>> GetQuizzesBySubjectAsync(Guid subjectId);
+        Task<QuizResultDto> SubmitQuizAsync(int quizId, int userId, Dictionary<int, string> answers);
+        Task<List<QuizResultDto>> GetUserQuizResultsAsync(int userId, Guid? documentId = null);
+        Task<QuizResultDto?> GetLatestResultAsync(int userId, int quizId);
+        Task<int> CountAttemptsAsync(int userId, int quizId);
     }
 }

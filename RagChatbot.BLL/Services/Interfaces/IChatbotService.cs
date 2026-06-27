@@ -8,6 +8,6 @@ namespace RagChatbot.BLL.Services.Interfaces
     public interface IChatbotService
     {
         // Hỏi chatbot: tìm ngữ cảnh (RAG) rồi trả về nguồn + luồng câu trả lời (streaming)
-        Task<ChatResult> AskAsync(Guid subjectId, string userMessage, CancellationToken cancellationToken = default);
+        Task<ChatResult> AskAsync(Guid subjectId, string userMessage, int currentUserId, string currentUserRole, CancellationToken cancellationToken = default);
     }
 }

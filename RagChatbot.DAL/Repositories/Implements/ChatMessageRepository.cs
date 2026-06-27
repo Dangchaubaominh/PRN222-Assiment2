@@ -22,26 +22,34 @@ namespace RagChatbot.DAL.Repositories.Implements
             _context.SaveChanges();
         }
 
+        public ChatMessage? GetById(int id)
+            => _context.ChatMessages.FirstOrDefault(m => m.Id == id);
+
+        public void Update(ChatMessage message)
+        {
+            _context.ChatMessages.Update(message);
+            _context.SaveChanges();
+        }
+
         public IEnumerable<ChatMessage> GetHistory(int userId, Guid subjectId, int sessionId, int take)
             => _context.ChatMessages
-                       .Where(m => m.UserId == userId &&
-                                   m.SubjectId == subjectId &&
-                                   m.SessionId == sessionId)
-                       .OrderByDescending(m => m.Id)
-                       .Take(take)
-                       .OrderBy(m => m.Id)
-                       .ToList();
+                .Where(m => m.UserId == userId &&
+                            m.SubjectId == subjectId &&
+                            m.SessionId == sessionId)
+                .OrderByDescending(m => m.Id)
+                .Take(take)
+                .OrderBy(m => m.Id)
+                .ToList();
 
         public void DeleteHistory(int userId, Guid subjectId, int sessionId)
         {
             var messages = _context.ChatMessages
-                                   .Where(m => m.UserId == userId &&
-                                               m.SubjectId == subjectId &&
-                                               m.SessionId == sessionId)
-                                   .ToList();
+                .Where(m => m.UserId == userId &&
+                            m.SubjectId == subjectId &&
+                            m.SessionId == sessionId)
+                .ToList();
 
-            if (messages.Count == 0)
-                return;
+            if (messages.Count == 0) return;
 
             _context.ChatMessages.RemoveRange(messages);
             _context.SaveChanges();

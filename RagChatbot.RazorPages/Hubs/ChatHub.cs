@@ -2,14 +2,10 @@ using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.DAL.Entities;
 
 namespace RagChatbot.RazorPages.Hubs
 {
-    /// <summary>
-    /// Hub real-time cho Chat AI. Client gửi câu hỏi qua "StreamMessage";
-    /// server kiểm tra quyền, lưu lịch sử theo phiên, ủy thác cho BLL (RAG),
-    /// rồi đẩy câu trả lời theo từng đoạn kèm danh sách nguồn trích dẫn.
-    /// </summary>
     [Authorize]
     public class ChatHub : Hub
     {
@@ -59,7 +55,8 @@ namespace RagChatbot.RazorPages.Hubs
 
             try
             {
-                var result = await _chatbotService.AskAsync(subjectId, userMessage, Context.ConnectionAborted);
+                string role = Context.User?.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value ?? "";
+                var result = await _chatbotService.AskAsync(subjectId, userMessage, userId, role, Context.ConnectionAborted);
 
                 var sb = new StringBuilder();
                 await foreach (var piece in result.Answer)
@@ -73,14 +70,29 @@ namespace RagChatbot.RazorPages.Hubs
 
                 await Clients.Caller.SendAsync("ReceiveDone");
 
-                _history.Save(userId, subjectId, sessionId, "assistant", sb.ToString(), result.Sources);
+                int messageId = _history.Save(userId, subjectId, sessionId, "assistant", sb.ToString(), result.Sources);
                 _sessions.TouchSession(userId, subjectId, sessionId);
+                await Clients.Caller.SendAsync("ReceiveMessageId", messageId);
             }
             catch
             {
-                await Clients.Caller.SendAsync("ReceiveError",
-                    "Có lỗi xảy ra khi xử lý câu hỏi. Vui lòng thử lại.");
+                await Clients.Caller.SendAsync("ReceiveError", "Có lỗi xảy ra khi xử lý câu hỏi. Vui lòng thử lại.");
             }
+        }
+
+        public async Task SubmitFeedback(int messageId, int? feedback)
+        {
+            if (!int.TryParse(Context.UserIdentifier, out int userId)) return;
+
+            FeedbackType? type = feedback switch
+            {
+                1 => FeedbackType.Upvote,
+                -1 => FeedbackType.Downvote,
+                _ => null
+            };
+
+            _history.UpdateFeedback(messageId, userId, type);
+            await Clients.Caller.SendAsync("FeedbackReceived", messageId, feedback);
         }
     }
 }

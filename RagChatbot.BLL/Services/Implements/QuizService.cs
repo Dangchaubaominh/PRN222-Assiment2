@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -10,6 +9,7 @@ using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
 using RagChatbot.DAL.Data;
 using RagChatbot.DAL.Entities;
+using RagChatbot.DAL.Repositories.Interfaces;
 
 namespace RagChatbot.BLL.Services.Implements
 {
@@ -17,168 +17,228 @@ namespace RagChatbot.BLL.Services.Implements
     {
         private readonly ApplicationDbContext _context;
         private readonly IAIService _aiService;
+        private readonly IDocumentChunkRepository _chunkRepository;
 
-        public QuizService(ApplicationDbContext context, IAIService aiService)
+        public QuizService(ApplicationDbContext context, IAIService aiService, IDocumentChunkRepository chunkRepository)
         {
             _context = context;
             _aiService = aiService;
+            _chunkRepository = chunkRepository;
         }
 
-        public IEnumerable<QuizDto> GetBySubject(Guid subjectId)
-            => _context.Quizzes
-                .Include(q => q.Questions)
-                .AsNoTracking()
-                .Where(q => q.SubjectId == subjectId)
-                .OrderByDescending(q => q.CreatedAt)
-                .Select(ToDto)
-                .ToList();
-
-        public QuizDto? GetById(int quizId)
+        public async Task<QuizDto?> GenerateQuizAsync(Guid documentId, int numberOfQuestions, int userId)
         {
-            var quiz = _context.Quizzes
-                .Include(q => q.Questions)
-                .AsNoTracking()
-                .FirstOrDefault(q => q.Id == quizId);
+            var chunks = _chunkRepository.GetByDocumentId(documentId).Take(50).ToList();
+            if (!chunks.Any())
+                throw new Exception("Tài liệu chưa được xử lý hoặc không có nội dung.");
 
-            return quiz == null ? null : ToDto(quiz);
-        }
-
-        public async Task<QuizDto?> GenerateAsync(Guid subjectId, Guid? documentId, int questionCount = 5)
-        {
-            var query = _context.DocumentChunks
-                .Include(c => c.Document)
-                .AsNoTracking()
-                .Where(c => c.Document.SubjectId == subjectId);
-
-            if (documentId.HasValue)
-                query = query.Where(c => c.DocumentId == documentId.Value);
-
-            var chunks = query.OrderBy(c => c.DocumentId)
-                              .ThenBy(c => c.ChunkIndex)
-                              .Take(10)
-                              .ToList();
-
-            if (chunks.Count == 0)
-                return null;
+            string documentContent = string.Join("\n\n", chunks.Select(c => c.TextContent));
+            if (documentContent.Length > 30000)
+                documentContent = documentContent[..30000];
 
             string prompt = $$"""
-            Tạo {{questionCount}} câu hỏi trắc nghiệm bằng tiếng Việt có dấu từ tài liệu sau.
-            Chỉ trả về JSON hợp lệ, không thêm markdown.
-            Định dạng:
+            Dựa vào nội dung tài liệu sau, hãy tạo một bài trắc nghiệm gồm {{numberOfQuestions}} câu hỏi bằng tiếng Việt có dấu.
+            Chỉ trả về mảng JSON hợp lệ, không kèm markdown.
+            Định dạng JSON:
             [
               {
-                "questionText": "Nội dung câu hỏi?",
-                "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
-                "correctAnswer": "A",
-                "explanation": "Giải thích ngắn gọn dựa trên tài liệu."
+                "Question": "Nội dung câu hỏi?",
+                "OptionA": "Đáp án A",
+                "OptionB": "Đáp án B",
+                "OptionC": "Đáp án C",
+                "OptionD": "Đáp án D",
+                "CorrectOption": "A",
+                "Explanation": "Giải thích ngắn gọn tại sao đáp án đúng."
               }
             ]
+            CorrectOption chỉ nhận một trong bốn giá trị: A, B, C, D.
 
-            Tài liệu:
-            {{string.Join("\n\n---\n\n", chunks.Select(c => c.TextContent))}}
+            NỘI DUNG TÀI LIỆU:
+            {{documentContent}}
             """;
 
-            string aiText = await CollectAsync(prompt);
-            var questions = ParseQuestions(aiText);
-            if (questions.Count == 0)
-                questions = BuildFallbackQuestions(chunks, questionCount);
+            string responseJson = await _aiService.GenerateContentAsync(prompt);
+            if (string.IsNullOrWhiteSpace(responseJson))
+                throw new Exception("Không nhận được phản hồi từ AI.");
 
-            string title = documentId.HasValue
-                ? $"Quiz từ {chunks.First().Document.FileName}"
-                : $"Quiz môn học {DateTime.Now:dd/MM/yyyy HH:mm}";
+            var parsedQuestions = ParseAiQuestions(responseJson);
+            if (parsedQuestions.Count == 0)
+                parsedQuestions = BuildFallbackQuestions(chunks, numberOfQuestions);
 
+            var document = await _context.Documents.FindAsync(documentId);
             var quiz = new Quiz
             {
-                SubjectId = subjectId,
                 DocumentId = documentId,
-                Title = title,
+                Title = $"Bài tập: {document?.FileName ?? "Tài liệu"}",
+                CreatedById = userId,
                 CreatedAt = DateTime.UtcNow,
-                Questions = questions.Take(questionCount).Select(q => new QuizQuestion
+                Questions = parsedQuestions.Take(numberOfQuestions).Select(q => new QuizQuestion
                 {
-                    QuestionText = q.QuestionText,
-                    OptionsJson = JsonSerializer.Serialize(q.Options),
-                    CorrectAnswer = NormalizeAnswer(q.CorrectAnswer),
-                    Explanation = q.Explanation
+                    Content = q.QuestionText,
+                    OptionA = CleanOption(q.OptionA),
+                    OptionB = CleanOption(q.OptionB),
+                    OptionC = CleanOption(q.OptionC),
+                    OptionD = CleanOption(q.OptionD),
+                    CorrectOption = NormalizeAnswer(q.CorrectOption),
+                    Explanation = q.Explanation ?? ""
                 }).ToList()
             };
 
             _context.Quizzes.Add(quiz);
             await _context.SaveChangesAsync();
 
-            return ToDto(quiz);
+            return await GetQuizByIdAsync(quiz.Id);
         }
 
-        public QuizAttemptDto? Submit(int userId, int quizId, IDictionary<int, string> answers)
+        public async Task<QuizDto?> GetQuizByIdAsync(int quizId)
         {
-            var quiz = _context.Quizzes.Include(q => q.Questions).FirstOrDefault(q => q.Id == quizId);
+            var quiz = await _context.Quizzes
+                .Include(q => q.Questions)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(q => q.Id == quizId);
+
+            return quiz == null ? null : ToDto(quiz);
+        }
+
+        public async Task<List<QuizDto>> GetQuizzesByDocumentAsync(Guid documentId)
+            => await _context.Quizzes
+                .Include(q => q.Questions)
+                .AsNoTracking()
+                .Where(q => q.DocumentId == documentId)
+                .OrderByDescending(q => q.CreatedAt)
+                .Select(q => ToDto(q))
+                .ToListAsync();
+
+        public async Task<List<QuizDto>> GetQuizzesBySubjectAsync(Guid subjectId)
+            => await _context.Quizzes
+                .Include(q => q.Document)
+                .Include(q => q.Questions)
+                .AsNoTracking()
+                .Where(q => q.Document.SubjectId == subjectId)
+                .OrderByDescending(q => q.CreatedAt)
+                .Select(q => ToDto(q))
+                .ToListAsync();
+
+        public async Task<QuizResultDto> SubmitQuizAsync(int quizId, int userId, Dictionary<int, string> answers)
+        {
+            var quiz = await _context.Quizzes
+                .Include(q => q.Questions)
+                .FirstOrDefaultAsync(q => q.Id == quizId);
+
             if (quiz == null)
-                return null;
+                throw new Exception("Không tìm thấy bài quiz.");
 
             int score = quiz.Questions.Count(q =>
-                answers.TryGetValue(q.Id, out var answer) &&
-                string.Equals(NormalizeAnswer(answer), NormalizeAnswer(q.CorrectAnswer), StringComparison.OrdinalIgnoreCase));
+                answers.TryGetValue(q.Id, out string? userAnswer) &&
+                NormalizeAnswer(userAnswer) == NormalizeAnswer(q.CorrectOption));
 
-            var attempt = new QuizAttempt
+            var result = new QuizResult
             {
                 QuizId = quizId,
                 UserId = userId,
                 Score = score,
                 TotalQuestions = quiz.Questions.Count,
-                AnswersJson = JsonSerializer.Serialize(answers),
-                TakenAt = DateTime.UtcNow
+                CompletedAt = DateTime.UtcNow
             };
 
-            _context.QuizAttempts.Add(attempt);
-            _context.SaveChanges();
+            _context.QuizResults.Add(result);
+            await _context.SaveChangesAsync();
 
-            return ToAttemptDto(attempt, CountAttempts(userId, quizId));
+            return ToResultDto(result);
         }
 
-        public QuizAttemptDto? GetLatestAttempt(int userId, int quizId)
+        public async Task<List<QuizResultDto>> GetUserQuizResultsAsync(int userId, Guid? documentId = null)
         {
-            var attempt = _context.QuizAttempts
+            var query = _context.QuizResults.Include(r => r.Quiz).AsQueryable();
+
+            if (documentId.HasValue)
+                query = query.Where(r => r.Quiz.DocumentId == documentId.Value);
+
+            var results = await query
+                .Where(r => r.UserId == userId)
+                .OrderByDescending(r => r.CompletedAt)
+                .ToListAsync();
+
+            return results.Select(ToResultDto).ToList();
+        }
+
+        public async Task<QuizResultDto?> GetLatestResultAsync(int userId, int quizId)
+        {
+            var result = await _context.QuizResults
                 .AsNoTracking()
-                .Where(a => a.UserId == userId && a.QuizId == quizId)
-                .OrderByDescending(a => a.TakenAt)
-                .FirstOrDefault();
+                .Where(r => r.UserId == userId && r.QuizId == quizId)
+                .OrderByDescending(r => r.CompletedAt)
+                .FirstOrDefaultAsync();
 
-            return attempt == null ? null : ToAttemptDto(attempt, CountAttempts(userId, quizId));
+            return result == null ? null : ToResultDto(result);
         }
 
-        public int CountAttempts(int userId, int quizId)
-            => _context.QuizAttempts.Count(a => a.UserId == userId && a.QuizId == quizId);
+        public Task<int> CountAttemptsAsync(int userId, int quizId)
+            => _context.QuizResults.CountAsync(r => r.UserId == userId && r.QuizId == quizId);
 
-        private async Task<string> CollectAsync(string prompt)
-        {
-            var sb = new StringBuilder();
-            await foreach (var part in _aiService.GenerateChatResponseStreamAsync(prompt))
-                sb.Append(part);
-            return sb.ToString();
-        }
+        private static QuizDto ToDto(Quiz quiz)
+            => new()
+            {
+                Id = quiz.Id,
+                DocumentId = quiz.DocumentId,
+                Title = quiz.Title,
+                CreatedAt = quiz.CreatedAt,
+                CreatedById = quiz.CreatedById,
+                Questions = quiz.Questions.Select(q => new QuizQuestionDto
+                {
+                    Id = q.Id,
+                    QuizId = q.QuizId,
+                    Content = q.Content,
+                    Question = q.Content,
+                    OptionA = q.OptionA,
+                    OptionB = q.OptionB,
+                    OptionC = q.OptionC,
+                    OptionD = q.OptionD,
+                    CorrectOption = q.CorrectOption,
+                    Explanation = q.Explanation
+                }).ToList()
+            };
 
-        private static List<GeneratedQuestion> ParseQuestions(string text)
+        private static QuizResultDto ToResultDto(QuizResult result)
+            => new()
+            {
+                Id = result.Id,
+                QuizId = result.QuizId,
+                UserId = result.UserId,
+                Score = result.Score,
+                TotalQuestions = result.TotalQuestions,
+                CompletedAt = result.CompletedAt
+            };
+
+        private static List<GeneratedQuestion> ParseAiQuestions(string text)
         {
             string json = text.Trim();
+            json = Regex.Replace(json, "^```json", "", RegexOptions.IgnoreCase).Trim();
+            json = Regex.Replace(json, "^```", "").Trim();
+            json = Regex.Replace(json, "```$", "").Trim();
+
             var match = Regex.Match(json, @"\[[\s\S]*\]");
             if (match.Success)
                 json = match.Value;
 
             try
             {
-                var questions = JsonSerializer.Deserialize<List<GeneratedQuestion>>(json, new JsonSerializerOptions
+                return JsonSerializer.Deserialize<List<GeneratedQuestion>>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
-                });
-
-                return questions?
-                    .Where(q => !string.IsNullOrWhiteSpace(q.QuestionText) &&
-                                q.Options.Count >= 2 &&
-                                !string.IsNullOrWhiteSpace(q.CorrectAnswer))
+                })?.Where(q => !string.IsNullOrWhiteSpace(q.QuestionText) ||
+                              !string.IsNullOrWhiteSpace(q.Question) ||
+                              !string.IsNullOrWhiteSpace(q.Content))
+                    .Select(q =>
+                    {
+                        q.QuestionText = q.QuestionText ?? q.Question ?? q.Content ?? "";
+                        return q;
+                    })
                     .ToList() ?? new List<GeneratedQuestion>();
             }
-            catch
+            catch (Exception ex)
             {
-                return new List<GeneratedQuestion>();
+                throw new Exception("Lỗi khi đọc JSON từ AI: " + ex.Message);
             }
         }
 
@@ -187,61 +247,20 @@ namespace RagChatbot.BLL.Services.Implements
             return chunks.Take(questionCount).Select((chunk, index) => new GeneratedQuestion
             {
                 QuestionText = $"Ý chính của đoạn tài liệu số {chunk.ChunkIndex ?? index + 1} là gì?",
-                Options = new List<string>
-                {
-                    "A. Nội dung được trình bày trong đoạn tài liệu liên quan",
-                    "B. Một nội dung không xuất hiện trong tài liệu",
-                    "C. Một kết luận không có căn cứ",
-                    "D. Một thông tin ngoài phạm vi môn học"
-                },
-                CorrectAnswer = "A",
+                OptionA = "Nội dung được trình bày trong đoạn tài liệu liên quan",
+                OptionB = "Một nội dung không xuất hiện trong tài liệu",
+                OptionC = "Một kết luận không có căn cứ",
+                OptionD = "Một thông tin ngoài phạm vi môn học",
+                CorrectOption = "A",
                 Explanation = BuildSnippet(chunk.TextContent)
             }).ToList();
         }
 
-        private static QuizDto ToDto(Quiz quiz)
-            => new()
-            {
-                Id = quiz.Id,
-                SubjectId = quiz.SubjectId,
-                DocumentId = quiz.DocumentId,
-                Title = quiz.Title,
-                CreatedAt = quiz.CreatedAt,
-                Questions = quiz.Questions.Select(q => new QuizQuestionDto
-                {
-                    Id = q.Id,
-                    QuestionText = q.QuestionText,
-                    Options = ParseOptions(q.OptionsJson),
-                    CorrectAnswer = q.CorrectAnswer,
-                    Explanation = q.Explanation
-                }).ToList()
-            };
-
-        private static IReadOnlyList<string> ParseOptions(string json)
-        {
-            try
-            {
-                return JsonSerializer.Deserialize<List<string>>(json) ?? new List<string>();
-            }
-            catch
-            {
-                return new List<string>();
-            }
-        }
-
-        private static QuizAttemptDto ToAttemptDto(QuizAttempt attempt, int attemptNumber)
-            => new()
-            {
-                Id = attempt.Id,
-                QuizId = attempt.QuizId,
-                Score = attempt.Score,
-                TotalQuestions = attempt.TotalQuestions,
-                TakenAt = attempt.TakenAt,
-                AttemptNumber = attemptNumber
-            };
-
         private static string NormalizeAnswer(string? answer)
-            => string.IsNullOrWhiteSpace(answer) ? "" : answer.Trim()[0].ToString().ToUpperInvariant();
+            => string.IsNullOrWhiteSpace(answer) ? "A" : answer.Trim()[0].ToString().ToUpperInvariant();
+
+        private static string CleanOption(string? option)
+            => Regex.Replace(option ?? "", @"^[A-Da-d]\.\s*", "").Trim();
 
         private static string BuildSnippet(string? text)
         {
@@ -254,10 +273,15 @@ namespace RagChatbot.BLL.Services.Implements
 
         private sealed class GeneratedQuestion
         {
-            public string QuestionText { get; set; } = "";
-            public List<string> Options { get; set; } = new();
-            public string CorrectAnswer { get; set; } = "";
-            public string Explanation { get; set; } = "";
+            public string? QuestionText { get; set; }
+            public string? Question { get; set; }
+            public string? Content { get; set; }
+            public string? OptionA { get; set; }
+            public string? OptionB { get; set; }
+            public string? OptionC { get; set; }
+            public string? OptionD { get; set; }
+            public string? CorrectOption { get; set; }
+            public string? Explanation { get; set; }
         }
     }
 }

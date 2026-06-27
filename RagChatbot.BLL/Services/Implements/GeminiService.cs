@@ -116,6 +116,48 @@ namespace RagChatbot.BLL.Services.Implements
             }
         }
 
+        public async Task<string> GenerateContentAsync(string prompt, CancellationToken cancellationToken = default)
+        {
+            string url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
+
+            var requestBody = new
+            {
+                contents = new[]
+                {
+                    new { parts = new[] { new { text = prompt } } }
+                },
+                generationConfig = new
+                {
+                    responseMimeType = "application/json"
+                }
+            };
+
+            using var request = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(requestBody), Encoding.UTF8, "application/json")
+            };
+
+            using var response = await _httpClient.SendAsync(request, cancellationToken);
+
+            if (!response.IsSuccessStatusCode)
+            {
+                string errorDetail = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw new Exception($"Lỗi Gemini API: {errorDetail}");
+            }
+
+            var responseString = await response.Content.ReadAsStringAsync(cancellationToken);
+            using var doc = JsonDocument.Parse(responseString);
+            
+            if (!doc.RootElement.TryGetProperty("candidates", out var candidates) || candidates.GetArrayLength() == 0)
+                return null;
+
+            return candidates[0]
+                .GetProperty("content")
+                .GetProperty("parts")[0]
+                .GetProperty("text")
+                .GetString();
+        }
+
         // Gắn System Prompt thẳng vào câu hỏi để ép AI không được "bịa" thông tin
         private static string BuildFullPrompt(string prompt) => @"
             Bạn là trợ lý học tập AI.

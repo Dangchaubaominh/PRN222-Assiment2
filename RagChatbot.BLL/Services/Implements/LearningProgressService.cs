@@ -28,7 +28,7 @@ namespace RagChatbot.BLL.Services.Implements
         public LearningDashboardDto GetDashboard(int userId)
         {
             var activities = _context.LearningActivities.Where(a => a.UserId == userId).ToList();
-            var attempts = _context.QuizAttempts.Where(a => a.UserId == userId).ToList();
+            var attempts = _context.QuizResults.Where(a => a.UserId == userId).ToList();
             var subjects = _context.Subjects.ToList();
 
             return new LearningDashboardDto
@@ -43,7 +43,7 @@ namespace RagChatbot.BLL.Services.Implements
                 Subjects = subjects.Select(subject =>
                 {
                     var subjectActivities = activities.Where(a => a.SubjectId == subject.Id).ToList();
-                    var quizIds = _context.Quizzes.Where(q => q.SubjectId == subject.Id).Select(q => q.Id).ToList();
+                    var quizIds = _context.Quizzes.Where(q => q.Document.SubjectId == subject.Id).Select(q => q.Id).ToList();
                     var subjectAttempts = attempts.Where(a => quizIds.Contains(a.QuizId)).ToList();
 
                     return new SubjectLearningStatDto

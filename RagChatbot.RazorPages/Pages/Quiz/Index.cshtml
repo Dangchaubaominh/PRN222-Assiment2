@@ -1,13 +1,13 @@
 @page
 @model RagChatbot.RazorPages.Pages.Quiz.IndexModel
 @{
-    ViewData["Title"] = "Quiz — " + Model.Subject?.Code;
+    ViewData["Title"] = "Quiz - " + Model.Subject?.Code;
 }
 
 <div class="breadcrumb-app">
     <a asp-page="/Subject/Index"><i class="bi bi-book me-1"></i>Môn học</a>
     <span class="sep"><i class="bi bi-chevron-right" style="font-size:10px"></i></span>
-    <span class="current">Quiz — @Model.Subject?.Code</span>
+    <span class="current">Quiz - @Model.Subject?.Code</span>
 </div>
 
 <div class="page-header fade-in-up">
@@ -24,8 +24,8 @@
 {
     <div class="table-card fade-in-up" style="padding:18px;margin-bottom:16px">
         <form method="post" asp-page-handler="Generate" asp-route-subjectId="@Model.SubjectId" class="quiz-generate-form">
-            <select name="documentId" class="form-control-app">
-                <option value="">Tạo từ tất cả tài liệu đã học</option>
+            <select name="documentId" class="form-control-app" required>
+                <option value="">Chọn tài liệu để tạo quiz</option>
                 @foreach (var doc in Model.Documents)
                 {
                     <option value="@doc.Id">@doc.FileName</option>
@@ -54,57 +54,47 @@ else
     <div class="quiz-list fade-in-up">
         @foreach (var quiz in Model.Quizzes)
         {
-            bool hasAttempt = Model.LatestAttempts.TryGetValue(quiz.Id, out var attempt);
+            bool hasResult = Model.LatestResults.TryGetValue(quiz.Id, out var result);
+            int attemptCount = Model.AttemptCounts.TryGetValue(quiz.Id, out var count) ? count : 0;
+
             <section class="quiz-card">
                 <div class="quiz-card-head">
                     <div>
                         <h2>@quiz.Title</h2>
-                        <div class="quiz-meta">@quiz.Questions.Count câu hỏi · Tạo lúc @quiz.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")</div>
-                        @if (hasAttempt)
+                        <div class="quiz-meta">
+                            @quiz.Questions.Count câu hỏi · Tạo lúc @quiz.CreatedAt.ToLocalTime().ToString("dd/MM/yyyy HH:mm")
+                        </div>
+                        @if (hasResult)
                         {
                             <div class="quiz-retake-note">
-                                Lần gần nhất: lần @attempt!.AttemptNumber, đạt @attempt.Score/@attempt.TotalQuestions câu đúng.
-                                Bạn có thể làm lại bài quiz nếu chưa hài lòng với kết quả.
+                                Kết quả gần nhất: @result!.Score/@result.TotalQuestions câu đúng.
+                                Bạn đã làm @attemptCount lần và có thể làm lại nếu chưa hài lòng với kết quả.
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="quiz-retake-note">
+                                Bạn chưa làm bài quiz này.
                             </div>
                         }
                     </div>
-                    @if (hasAttempt)
+                    @if (hasResult)
                     {
-                        <span class="quiz-score">@attempt!.Score/@attempt.TotalQuestions</span>
+                        <span class="quiz-score">@result!.Score/@result.TotalQuestions</span>
                     }
                 </div>
 
-                <form method="post" asp-page-handler="Submit" asp-route-subjectId="@Model.SubjectId" asp-route-quizId="@quiz.Id">
-                    <div class="quiz-question-list">
-                        @for (int i = 0; i < quiz.Questions.Count; i++)
-                        {
-                            var q = quiz.Questions[i];
-                            <div class="quiz-question">
-                                <div class="quiz-question-title">@($"{i + 1}. {q.QuestionText}")</div>
-                                <div class="quiz-options">
-                                    @foreach (var option in q.Options)
-                                    {
-                                        var answer = option.Length > 0 ? option.Substring(0, 1).ToUpperInvariant() : "";
-                                        <label class="quiz-option">
-                                            <input type="radio" name="answers[@q.Id]" value="@answer" required />
-                                            <span>@option</span>
-                                        </label>
-                                    }
-                                </div>
-                                @if (hasAttempt)
-                                {
-                                    <div class="quiz-explain">
-                                        Đáp án đúng: <strong>@q.CorrectAnswer</strong><br />
-                                        @q.Explanation
-                                    </div>
-                                }
-                            </div>
-                        }
-                    </div>
-                    <button type="submit" class="btn-app btn-success-app">
-                        <i class="bi bi-check2-circle"></i> @(hasAttempt ? "Làm lại bài quiz" : "Nộp bài")
-                    </button>
-                </form>
+                <div class="quiz-actions">
+                    <a asp-page="/Quiz/Take" asp-route-id="@quiz.Id" class="btn-app btn-success-app">
+                        <i class="bi bi-check2-circle"></i> @(hasResult ? "Làm lại bài quiz" : "Làm bài quiz")
+                    </a>
+                    @if (hasResult)
+                    {
+                        <a asp-page="/Quiz/Result" asp-route-id="@result!.Id" class="btn-app btn-ghost">
+                            <i class="bi bi-eye"></i> Xem kết quả
+                        </a>
+                    }
+                </div>
             </section>
         }
     </div>
@@ -121,12 +111,6 @@ else
 .quiz-meta{font-size:12px;color:var(--text-3);margin-top:4px}
 .quiz-retake-note{margin-top:8px;color:var(--text-2);font-size:13px;line-height:1.5}
 .quiz-score{display:inline-flex;align-items:center;justify-content:center;min-width:62px;height:34px;border-radius:8px;background:rgba(16,185,129,.12);color:#059669;font-weight:800;flex-shrink:0}
-.quiz-question-list{display:grid;gap:12px;margin-bottom:14px}
-.quiz-question{border:1px solid var(--border);border-radius:8px;padding:14px;background:var(--surface-2)}
-.quiz-question-title{font-weight:800;color:var(--text-1);margin-bottom:10px}
-.quiz-options{display:grid;gap:8px}
-.quiz-option{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;cursor:pointer}
-.quiz-option span{line-height:1.5}
-.quiz-explain{margin-top:10px;padding:10px;border-left:3px solid var(--primary);background:rgba(99,102,241,.07);border-radius:8px;color:var(--text-2);font-size:13px;line-height:1.55}
+.quiz-actions{display:flex;gap:10px;flex-wrap:wrap}
 </style>
 }

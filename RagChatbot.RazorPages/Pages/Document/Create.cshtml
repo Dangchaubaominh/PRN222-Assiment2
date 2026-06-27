@@ -46,6 +46,15 @@
                            accept=".pdf,.txt,.docx,.doc" />
                 </label>
 
+                <div style="margin-top:16px;">
+                    <label style="font-size:13px;font-weight:600;color:var(--text-2);margin-bottom:6px;display:block">Quyền riêng tư</label>
+                    <select name="AccessLevel" class="form-control" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-2);color:var(--text-1)">
+                        <option value="0">Công khai (Sinh viên có thể xem và AI sẽ học)</option>
+                        <option value="1">Riêng tư (Chỉ mình tôi thấy)</option>
+                        <option value="2">Nội bộ Giảng viên (Chỉ Giảng viên/Admin mới thấy)</option>
+                    </select>
+                </div>
+
                 <div style="margin-top:24px;display:flex;gap:10px">
                     <button type="submit" class="btn-app btn-primary-app" id="submitBtn">
                         <i class="bi bi-upload"></i> Upload & Xử lý AI

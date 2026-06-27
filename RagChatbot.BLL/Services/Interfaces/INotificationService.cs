@@ -9,7 +9,7 @@ namespace RagChatbot.BLL.Services.Interfaces
     /// </summary>
     public interface INotificationService
     {
-        NotificationDto Create(int userId, string message, string type = "info");
+        NotificationDto Create(int userId, string message, string type = "info", string? linkUrl = null);
         IEnumerable<NotificationDto> GetRecent(int userId, int take = 20);
         int GetUnreadCount(int userId);
         void MarkAllRead(int userId);

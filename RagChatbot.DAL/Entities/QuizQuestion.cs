@@ -6,12 +6,29 @@ namespace RagChatbot.DAL.Entities
     {
         [Key]
         public int Id { get; set; }
+
         public int QuizId { get; set; }
         public Quiz Quiz { get; set; } = default!;
-        public string QuestionText { get; set; } = "";
-        public string OptionsJson { get; set; } = "[]";
-        [MaxLength(10)]
-        public string CorrectAnswer { get; set; } = "";
+
+        [Required]
+        public string Content { get; set; } = "";
+
+        [Required]
+        public string OptionA { get; set; } = "";
+
+        [Required]
+        public string OptionB { get; set; } = "";
+
+        [Required]
+        public string OptionC { get; set; } = "";
+
+        [Required]
+        public string OptionD { get; set; } = "";
+
+        [Required]
+        [MaxLength(1)]
+        public string CorrectOption { get; set; } = "A";
+
         public string Explanation { get; set; } = "";
     }
 }

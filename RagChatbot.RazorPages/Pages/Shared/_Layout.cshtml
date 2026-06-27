@@ -209,7 +209,7 @@
                     customClass: { popup: 'swal-toast-custom' }
                 });
                 // 2. Cập nhật chuông
-                prependNotif(n.message, n.type, 'Vừa xong', n.id);
+                prependNotif(n.message, n.type, 'Vừa xong', n.id, n.linkUrl);
                 setBadge(n.unreadCount);
             });
             // Bị buộc đăng xuất (đổi quyền / xóa tài khoản) → đăng xuất ngay
@@ -238,7 +238,7 @@
             }
         }
 
-        function prependNotif(message, type, timeText, id) {
+        function prependNotif(message, type, timeText, id, linkUrl) {
             const list = document.getElementById('notifList');
             if (!list) return;
             const empty = document.getElementById('notifEmpty');
@@ -255,7 +255,16 @@
             body.className = 'notif-body';
             const msg = document.createElement('div');
             msg.className = 'notif-msg';
-            msg.textContent = message;
+            if (linkUrl) {
+                const a = document.createElement('a');
+                a.href = linkUrl;
+                a.style.textDecoration = 'none';
+                a.style.color = 'inherit';
+                a.textContent = message;
+                msg.appendChild(a);
+            } else {
+                msg.textContent = message;
+            }
             const time = document.createElement('div');
             time.className = 'notif-time';
             time.textContent = timeText;

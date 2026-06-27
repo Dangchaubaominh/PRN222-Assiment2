@@ -24,6 +24,7 @@ namespace RagChatbot.DAL.Repositories.Implements
         {
             return _context.DocumentChunks
                            .Where(c => c.DocumentId == documentId)
+                           .OrderBy(c => c.ChunkIndex)
                            .ToList();
         }
 
@@ -32,13 +33,24 @@ namespace RagChatbot.DAL.Repositories.Implements
             return _context.DocumentChunks.Count(c => c.DocumentId == documentId);
         }
 
-        public async Task<IEnumerable<DocumentChunk>> SearchSimilarChunksAsync(Guid subjectId, float[] queryVector, int topK = 3)
+        public async Task<IEnumerable<DocumentChunk>> SearchSimilarChunksAsync(Guid subjectId, float[] queryVector, int currentUserId, string currentUserRole, int topK = 3)
         {
             var vector = new Vector(queryVector);
 
-            return await _context.DocumentChunks
+            var query = _context.DocumentChunks
                 .Include(c => c.Document)
-                .Where(c => c.Document.SubjectId == subjectId)
+                .Where(c => c.Document.SubjectId == subjectId && c.Document.Status == DocumentStatus.Completed);
+                
+            if (currentUserRole != "Admin")
+            {
+                query = query.Where(c => 
+                    c.Document.AccessLevel == DocumentAccessLevel.Public ||
+                    (c.Document.AccessLevel == DocumentAccessLevel.Private && c.Document.UploadedById == currentUserId) ||
+                    (c.Document.AccessLevel == DocumentAccessLevel.AdminAndLecturerOnly && currentUserRole == "Lecturer")
+                );
+            }
+
+            return await query
                 .OrderBy(c => c.Embedding.CosineDistance(vector))
                 .Take(topK)
                 .ToListAsync();
