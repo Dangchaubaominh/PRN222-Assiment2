@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using RagChatbot.BLL.DTOs;
 using RagChatbot.BLL.Services.Interfaces;
+using RagChatbot.RazorPages.BackgroundTasks;
 
 namespace RagChatbot.RazorPages.Pages.Document
 {
@@ -15,19 +16,22 @@ namespace RagChatbot.RazorPages.Pages.Document
         private readonly ILearningProgressService _progressService;
         private readonly IUserSubjectService _userSubjectService;
         private readonly IWebHostEnvironment _env;
+        private readonly IDocumentProcessingQueue _queue;
 
         public ViewDocModel(
             IDocumentService documentService,
             IDocumentSummaryService summaryService,
             ILearningProgressService progressService,
             IUserSubjectService userSubjectService,
-            IWebHostEnvironment env)
+            IWebHostEnvironment env,
+            IDocumentProcessingQueue queue)
         {
             _documentService = documentService;
             _summaryService = summaryService;
             _progressService = progressService;
             _userSubjectService = userSubjectService;
             _env = env;
+            _queue = queue;
         }
 
         public DocumentDto Document { get; set; } = default!;
@@ -83,5 +87,49 @@ namespace RagChatbot.RazorPages.Pages.Document
 
             return RedirectToPage(new { id });
         }
+
+        public async Task<IActionResult> OnPostRechunkAsync(Guid id, int newChunkSize)
+        {
+            var document = _documentService.GetDocumentById(id);
+            if (document == null) return NotFound("Tài liệu không tồn tại.");
+            if (!CanAccess(document.SubjectId)) return Forbid();
+            if (!User.IsInRole("Admin") && !User.IsInRole("Lecturer")) return Forbid();
+
+            if (newChunkSize < 100) newChunkSize = 100;
+            if (newChunkSize > 2000) newChunkSize = 2000;
+
+            await _documentService.UpdateChunkSizeAsync(id, newChunkSize);
+            _queue.Enqueue(id);
+
+            TempData["SuccessMessage"] = "Đang tiến hành cắt lại tài liệu theo kích thước mới. Vui lòng chờ trong giây lát.";
+            return RedirectToPage(new { id });
+        }
+
+        public IActionResult OnGetChunksPartialAsync(Guid id)
+        {
+            var document = _documentService.GetDocumentById(id);
+            if (document == null || !CanAccess(document.SubjectId)) return NotFound();
+
+            var chunks = _documentService.GetChunksByDocumentId(id).ToList();
+            var model = new ChunksViewModel
+            {
+                DocumentId = id,
+                Status = document.Status,
+                Chunks = chunks,
+                TotalWords = chunks.Sum(c => c.WordCount)
+            };
+
+            return Partial("_ChunksListPartial", model);
+        }
+    }
+
+    public class ChunksViewModel
+    {
+        public Guid DocumentId { get; set; }
+        public string Status { get; set; }
+        public List<DocumentChunkDto> Chunks { get; set; } = new();
+        public int TotalWords { get; set; }
+        public int Total => Chunks.Count;
+        public int AvgWords => Total > 0 ? TotalWords / Total : 0;
     }
 }

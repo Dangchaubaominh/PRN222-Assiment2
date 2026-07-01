@@ -25,5 +25,8 @@ namespace RagChatbot.BLL.Services.Interfaces
 
         // Lấy danh sách các chunk đã được chia từ tài liệu
         IEnumerable<DocumentChunkDto> GetChunksByDocumentId(Guid documentId);
+
+        // Cập nhật Chunk size cho việc Re-chunk
+        Task UpdateChunkSizeAsync(Guid id, int newSize);
     }
 }

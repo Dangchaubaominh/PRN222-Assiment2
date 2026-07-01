@@ -13,5 +13,6 @@ namespace RagChatbot.BLL.DTOs
         public int AccessLevel { get; set; }
         public int? UploadedById { get; set; }
         public DateTime UploadedAt { get; set; }
+        public int MaxWordsPerChunk { get; set; }
     }
 }

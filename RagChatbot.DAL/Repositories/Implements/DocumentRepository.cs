@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +34,12 @@ namespace RagChatbot.DAL.Repositories.Implements
         public void Add(Document document)
         {
             _context.Documents.Add(document);
+            _context.SaveChanges();
+        }
+
+        public void Update(Document document)
+        {
+            _context.Documents.Update(document);
             _context.SaveChanges();
         }
 

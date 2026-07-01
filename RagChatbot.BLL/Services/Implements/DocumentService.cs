@@ -111,6 +111,18 @@ namespace RagChatbot.BLL.Services.Implements
                 });
         }
 
+        public async Task UpdateChunkSizeAsync(Guid id, int newSize)
+        {
+            var document = _documentRepository.GetById(id);
+            if (document != null)
+            {
+                document.MaxWordsPerChunk = newSize;
+                document.Status = DocumentStatus.Pending; // Đưa về Pending để Worker nhặt lại
+                _documentRepository.Update(document);
+            }
+            await Task.CompletedTask;
+        }
+
     private static DocumentDto ToDto(Document d) => new DocumentDto
         {
             Id = d.Id,
@@ -121,7 +133,8 @@ namespace RagChatbot.BLL.Services.Implements
             ProgressMessage = d.ProgressMessage,
             AccessLevel = (int)d.AccessLevel,
             UploadedById = d.UploadedById,
-            UploadedAt = d.UploadedAt
+            UploadedAt = d.UploadedAt,
+            MaxWordsPerChunk = d.MaxWordsPerChunk
         };
     }
 }

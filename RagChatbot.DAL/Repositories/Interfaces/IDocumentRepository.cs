@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using RagChatbot.DAL.Entities;
 
@@ -13,6 +13,7 @@ namespace RagChatbot.DAL.Repositories.Interfaces
 
         // Thêm và Xóa
         void Add(Document document);
+        void Update(Document document);
         void Delete(Guid id);
 
         // Cập nhật trạng thái (Dùng cho lúc Chatbot đang xử lý file)

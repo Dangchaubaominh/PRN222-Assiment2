@@ -1,4 +1,4 @@
-﻿@page
+@page
 @model RagChatbot.RazorPages.Pages.Document.ViewDocModel
 @{
     var doc = Model.Document;
@@ -31,6 +31,13 @@
     <div style="display:flex;gap:8px;flex-wrap:wrap">
         @if (User.IsInRole("Admin") || User.IsInRole("Lecturer"))
         {
+            <form method="post" asp-page-handler="Rechunk" class="d-inline-flex align-items-center" style="margin:0">
+                <input type="hidden" name="id" value="@doc.Id" />
+                <input type="number" name="newChunkSize" value="@doc.MaxWordsPerChunk" min="100" max="2000" class="form-control form-control-sm" style="width: 80px; margin-right: 5px;" title="Số từ tối đa mỗi đoạn cắt" />
+                <button type="submit" class="btn-app btn-sm-app" style="background:#0ea5e9;color:#fff;border-color:#0ea5e9" title="Cập nhật kích thước & Chia đoạn lại">
+                    <i class="bi bi-arrow-repeat"></i> Chia đoạn lại
+                </button>
+            </form>
             <form method="post" asp-page-handler="GenerateSummary" asp-route-id="@doc.Id" style="margin:0">
                 <button type="submit" class="btn-app btn-success-app btn-sm-app">
                     <i class="bi bi-stars"></i> Tạo tóm tắt
@@ -57,7 +64,7 @@
         <i class="bi bi-journal-check"></i> Tóm tắt AI
     </button>
     <button class="vd-tab" onclick="switchTab('chunks', this)">
-        <i class="bi bi-grid-3x3-gap"></i> Chunk <span class="chunk-count-badge">@total</span>
+        <i class="bi bi-grid-3x3-gap"></i> Chunk <span class="chunk-count-badge" id="chunk-count-badge">@total</span>
     </button>
 </div>
 
@@ -119,46 +126,9 @@
 </div>
 
 <div id="tab-chunks" class="vd-pane d-none">
-    @if (total == 0)
-    {
-        <div class="table-card fade-in-up">
-            <div class="empty-state">
-                <span class="empty-icon"><i class="bi bi-grid-3x3-gap"></i></span>
-                <div class="empty-title">Chưa có chunk nào</div>
-                <div class="empty-sub">Tài liệu này chưa được AI xử lý hoặc xử lý thất bại. Trạng thái hiện tại: <strong>@doc.Status</strong></div>
-            </div>
-        </div>
-    }
-    else
-    {
-        <div class="chunk-stats-row fade-in-up">
-            <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="csc-value">@total</div><div class="csc-label">Tổng số chunk</div></div></div>
-            <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-file-word"></i></div><div><div class="csc-value">@words.ToString("N0")</div><div class="csc-label">Tổng số từ</div></div></div>
-            <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-calculator"></i></div><div><div class="csc-value">~@avgWords</div><div class="csc-label">Từ trung bình / chunk</div></div></div>
-            <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-cpu"></i></div><div><div class="csc-value">768</div><div class="csc-label">Chiều vector embedding</div></div></div>
-        </div>
-
-        <div class="chunk-list fade-in-up">
-            @foreach (var chunk in chunks)
-            {
-                <div class="chunk-card" id="chunk-@chunk.Index">
-                    <div class="chunk-card-header" onclick="toggleChunk(@chunk.Index)">
-                        <div style="display:flex;align-items:center;gap:12px">
-                            <span class="chunk-index-badge">#@chunk.Index</span>
-                            <div>
-                                <div style="font-size:13px;font-weight:600;color:var(--text-1)">Chunk @chunk.Index / @total</div>
-                                <div style="font-size:12px;color:var(--text-3)">@chunk.WordCount từ</div>
-                            </div>
-                        </div>
-                        <i class="bi bi-chevron-down chunk-chevron" id="chev-@chunk.Index"></i>
-                    </div>
-                    <div class="chunk-card-body d-none" id="body-@chunk.Index">
-                        <div class="chunk-preview">@chunk.TextContent</div>
-                    </div>
-                </div>
-            }
-        </div>
-    }
+    <div id="chunks-container">
+        <partial name="_ChunksListPartial" model="new RagChatbot.RazorPages.Pages.Document.ChunksViewModel { DocumentId = doc.Id, Status = doc.Status, Chunks = chunks, TotalWords = words }" />
+    </div>
 </div>
 
 @section Scripts {
@@ -199,5 +169,48 @@ function toggleChunk(index) {
     document.getElementById('body-' + index).classList.toggle('d-none');
     document.getElementById('chev-' + index).classList.toggle('open');
 }
+</script>
+<script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+<script>
+    const subjectId = '@doc.SubjectId';
+    const documentId = '@doc.Id';
+
+    const docConn = new signalR.HubConnectionBuilder()
+        .withUrl("/documentHub")
+        .withAutomaticReconnect()
+        .build();
+
+    docConn.on("DocumentStatusChanged", function (data) {
+        if (data.documentId === documentId && data.status === "Completed") {
+            // Fetch updated chunks
+            fetch(`?handler=ChunksPartial&id=${documentId}`)
+                .then(r => r.text())
+                .then(html => {
+                    document.getElementById('chunks-container').innerHTML = html;
+                    // Try to update chunk count badge from the fetched html if possible,
+                    // or just query the DOM
+                    const count = document.querySelectorAll('#chunks-container .chunk-card').length;
+                    const badge = document.getElementById('chunk-count-badge');
+                    if (badge) badge.innerText = count;
+                })
+                .catch(err => console.error("Error fetching chunks:", err));
+        }
+    });
+
+    docConn.on("DocumentProgressChanged", function (data) {
+        if (data.documentId === documentId) {
+            // Update progress in the UI if visible
+            const emptySub = document.querySelector('#chunks-container .empty-sub');
+            if (emptySub) {
+                emptySub.innerHTML = `<strong>Tiến trình:</strong> ${data.message}`;
+            }
+        }
+    });
+
+    docConn.start().then(function () {
+        docConn.invoke("JoinSubject", subjectId);
+    }).catch(function (err) {
+        console.error(err.toString());
+    });
 </script>
 }

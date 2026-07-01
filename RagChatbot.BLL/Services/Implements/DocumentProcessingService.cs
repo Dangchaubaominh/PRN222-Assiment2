@@ -93,7 +93,14 @@ namespace RagChatbot.BLL.Services.Implements
                                                           .Select(text => new TextSegment(text, segment.PageNumber)))
                     .ToList();
 
-                // 4. Gọi AI chuyển từng chunk thành Vector embedding 768 chiều
+                // 4. Xóa các chunk cũ nếu có (trong trường hợp Re-chunk)
+                var oldChunks = _context.DocumentChunks.Where(c => c.DocumentId == documentId);
+                if (oldChunks.Any())
+                {
+                    _context.DocumentChunks.RemoveRange(oldChunks);
+                }
+
+                // 5. Gọi AI chuyển từng chunk thành Vector embedding 768 chiều
                 doc.Status = DocumentStatus.Processing;
                 await _context.SaveChangesAsync();
 
@@ -120,7 +127,7 @@ namespace RagChatbot.BLL.Services.Implements
 
                 return true;
             }
-            catch
+            catch (Exception ex)
             {
                 // Hủy mọi thay đổi đang chờ (các chunk thêm dở dang chưa lưu),
                 // rồi chỉ đánh dấu tài liệu là Failed.
@@ -129,7 +136,7 @@ namespace RagChatbot.BLL.Services.Implements
                 if (failedDoc != null)
                 {
                     failedDoc.Status = DocumentStatus.Failed;
-                    failedDoc.ProgressMessage = "Lỗi xử lý";
+                    failedDoc.ProgressMessage = "Lỗi xử lý: " + ex.Message;
                     _context.SaveChanges();
                 }
                 return false;

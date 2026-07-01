@@ -1,0 +1,65 @@
+@model RagChatbot.RazorPages.Pages.Document.ChunksViewModel
+@{
+    var docStatus = Model.Status;
+    var chunks = Model.Chunks;
+    var total = Model.Total;
+    var words = Model.TotalWords;
+    var avgWords = Model.AvgWords;
+}
+
+@if (total == 0)
+{
+    <div class="table-card fade-in-up">
+        <div class="empty-state">
+            <span class="empty-icon">
+                @if (docStatus == "Processing" || docStatus == "Pending")
+                {
+                    <span class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;"></span>
+                }
+                else
+                {
+                    <i class="bi bi-grid-3x3-gap"></i>
+                }
+            </span>
+            <div class="empty-title">
+                @(docStatus == "Processing" || docStatus == "Pending" ? "Đang xử lý dữ liệu..." : "Chưa có chunk nào")
+            </div>
+            <div class="empty-sub">
+                @(docStatus == "Processing" || docStatus == "Pending" 
+                    ? "Hệ thống đang tiến hành cắt văn bản và nhúng Vector. Quá trình này có thể mất vài phút."
+                    : "Tài liệu này chưa được AI xử lý hoặc xử lý thất bại.")
+                Trạng thái hiện tại: <strong>@docStatus</strong>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="chunk-stats-row fade-in-up">
+        <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-grid-3x3-gap-fill"></i></div><div><div class="csc-value">@total</div><div class="csc-label">Tổng số chunk</div></div></div>
+        <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-file-word"></i></div><div><div class="csc-value">@words.ToString("N0")</div><div class="csc-label">Tổng số từ</div></div></div>
+        <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-calculator"></i></div><div><div class="csc-value">~@avgWords</div><div class="csc-label">Từ trung bình / chunk</div></div></div>
+        <div class="chunk-stat-card"><div class="csc-icon"><i class="bi bi-cpu"></i></div><div><div class="csc-value">768</div><div class="csc-label">Chiều vector embedding</div></div></div>
+    </div>
+
+    <div class="chunk-list fade-in-up">
+        @foreach (var chunk in chunks)
+        {
+            <div class="chunk-card" id="chunk-@chunk.Index">
+                <div class="chunk-card-header" onclick="toggleChunk(@chunk.Index)">
+                    <div style="display:flex;align-items:center;gap:12px">
+                        <span class="chunk-index-badge">#@chunk.Index</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:600;color:var(--text-1)">Chunk @chunk.Index / @total</div>
+                            <div style="font-size:12px;color:var(--text-3)">@chunk.WordCount từ</div>
+                        </div>
+                    </div>
+                    <i class="bi bi-chevron-down chunk-chevron" id="chev-@chunk.Index"></i>
+                </div>
+                <div class="chunk-card-body d-none" id="body-@chunk.Index">
+                    <div class="chunk-preview">@chunk.TextContent</div>
+                </div>
+            </div>
+        }
+    </div>
+}
